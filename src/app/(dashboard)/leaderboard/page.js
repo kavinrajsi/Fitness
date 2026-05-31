@@ -18,7 +18,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Icon } from '@/components/icon'
 
 export const metadata = { title: 'Leaderboard — FitMe' }
@@ -111,6 +111,7 @@ export default async function LeaderboardPage({ searchParams }) {
                   </span>
 
                   <Avatar className="h-9 w-9 flex-shrink-0">
+                    {row.avatar_url && <AvatarImage src={row.avatar_url} alt={row.full_name} />}
                     <AvatarFallback className="text-xs font-bold">{initials}</AvatarFallback>
                   </Avatar>
 

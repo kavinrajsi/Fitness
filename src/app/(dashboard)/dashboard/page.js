@@ -21,7 +21,7 @@ import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { buttonVariants } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { StepsBarChart } from '@/components/steps-bar-chart'
 import { Icon } from '@/components/icon'
 
@@ -217,6 +217,7 @@ export default async function DashboardPage() {
                         : <span className="text-sm font-bold text-muted-foreground">#{row.rank}</span>}
                     </span>
                     <Avatar className="h-8 w-8 flex-shrink-0">
+                      {row.avatar_url && <AvatarImage src={row.avatar_url} alt={row.full_name} />}
                       <AvatarFallback className="text-xs font-bold">{initials}</AvatarFallback>
                     </Avatar>
                     <span className="flex-1 text-sm font-medium">
