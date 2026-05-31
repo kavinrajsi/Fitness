@@ -51,6 +51,7 @@ export async function GET(request) {
   if (session?.provider_token && user) {
     const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString()
     const googleName = user.user_metadata?.full_name ?? user.user_metadata?.name ?? null
+    const avatarUrl = user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? null
     await supabase
       .from('profiles')
       .update({
@@ -58,6 +59,7 @@ export async function GET(request) {
         google_refresh_token: session.provider_refresh_token ?? null,
         google_token_expires_at: expiresAt,
         ...(googleName ? { full_name: googleName } : {}),
+        ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
       })
       .eq('id', user.id)
   }

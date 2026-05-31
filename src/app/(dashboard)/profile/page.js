@@ -21,7 +21,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { updateProfile } from '@/app/actions/auth'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card, CardContent } from '@/components/ui/card'
 import { ThemeSwitcher } from '@/components/theme-switcher'
@@ -29,7 +29,7 @@ import { Icon } from '@/components/icon'
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null)
-  const [profile, setProfile] = useState({ full_name: '' })
+  const [profile, setProfile] = useState({ full_name: '', avatar_url: null })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState(null)
@@ -45,13 +45,14 @@ export default function ProfilePage() {
       if (user) {
         const { data } = await supabase
           .from('profiles')
-          .select('full_name, bio')
+          .select('full_name, bio, avatar_url')
           .eq('id', user.id)
           .single()
 
         const googleName =
           user.user_metadata?.full_name ?? user.user_metadata?.name ?? ''
         const fullName = data?.full_name || googleName
+        const avatarUrl = data?.avatar_url ?? user.user_metadata?.avatar_url ?? null
 
         // Backfill Google name into profiles if not set yet
         if (!data?.full_name && googleName) {
@@ -61,7 +62,7 @@ export default function ProfilePage() {
             .eq('id', user.id)
         }
 
-        setProfile({ full_name: fullName })
+        setProfile({ full_name: fullName, avatar_url: avatarUrl })
       }
       setLoading(false)
     }
@@ -119,6 +120,7 @@ export default function ProfilePage() {
         <CardContent className="pt-6">
           <div className="flex items-center gap-4 mb-7">
             <Avatar className="h-14 w-14 text-base font-bold">
+              {profile.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name} />}
               <AvatarFallback>{initials}</AvatarFallback>
             </Avatar>
             <div>
