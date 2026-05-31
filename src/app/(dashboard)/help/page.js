@@ -93,7 +93,30 @@ export default function HelpPage() {
               Once you cross 8,000 today, your streak extends automatically on the next sync.
             </li>
           </ul>
-          <p className="text-muted-foreground">
+          <div className="mt-4 p-4 rounded-xl bg-muted border border-border space-y-3">
+            <p className="font-medium text-foreground">Edge case — why your streak won&apos;t break mid-day</p>
+            <p>
+              Imagine you have a 5-day streak going. It&apos;s 7am on Day 6 and you haven&apos;t walked yet —
+              Google Fit shows 0 steps for today.
+            </p>
+            <p>
+              Without the grace period, the app would check today first, see 0 steps, and immediately reset your streak to 0.
+              That would be frustrating and unfair — the day isn&apos;t over yet.
+            </p>
+            <p>
+              Instead, FitMe checks: <span className="font-medium">&quot;Did today already hit 8,000?&quot;</span>
+            </p>
+            <ul className="list-none space-y-1.5 pl-1">
+              <li>✅ <span className="font-medium">Yes</span> → count today, then go backwards. Streak grows.</li>
+              <li>⏳ <span className="font-medium">Not yet</span> → skip today, start from yesterday. Streak is preserved.</li>
+            </ul>
+            <p>So your 5-day streak stays intact all morning. The moment you hit 8,000 steps, the next sync picks it up and your streak becomes 6.</p>
+            <p className="text-muted-foreground">
+              This only protects you while the day is still in progress. If you genuinely missed yesterday
+              (under 8,000 steps all day), the streak correctly resets to 0.
+            </p>
+          </div>
+          <p className="text-muted-foreground mt-3">
             The streak card on the Dashboard shows the last 7 days. The Profile page shows the full month calendar.
           </p>
         </Section>
