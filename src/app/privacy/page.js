@@ -23,17 +23,18 @@ export default function PrivacyPage() {
               Google Fit data on your behalf
             </li>
           </ul>
-          <p className="mt-3">From Google Fit we read (but do not permanently store):</p>
+          <p className="mt-3">From Google Fit we read and <strong>store in our database</strong>:</p>
           <ul className="list-disc pl-6 space-y-1 mt-2">
-            <li>Step count</li>
-            <li>Calories burned</li>
-            <li>Heart rate</li>
-            <li>Sleep activity</li>
+            <li>Daily step count (up to 7 days of history)</li>
+            <li>Calories burned (today only)</li>
+            <li>Average heart rate (today only)</li>
+            <li>Body weight and height (stored on your profile)</li>
           </ul>
-          <p className="mt-3">
-            Fit data is fetched live on each dashboard load and is not saved to
-            our database.
-          </p>
+          <p className="mt-3">From Google Fit we read <strong>but do not store</strong>:</p>
+          <ul className="list-disc pl-6 space-y-1 mt-2">
+            <li>Sleep duration (fetched live, shown on dashboard only)</li>
+            <li>Active minutes and distance (fetched live, shown on dashboard only)</li>
+          </ul>
         </Section>
 
         <Section title="2. How we use your data">
