@@ -1,19 +1,3 @@
-/**
- * Dashboard — main overview page. Server component.
- *
- * Data flow (runs on every page load):
- * 1. If the Google token is valid, fetch live data from Google Fit in parallel
- *    (health summary, 7-day steps, body metrics).
- * 2. Upsert historical days first (steps only, calories=0) then upsert today's
- *    full row (steps + calories + heart rate) LAST — order matters because both
- *    upserts target the same (user_id, date) unique key and we don't want the
- *    historical pass to overwrite today's accurate calorie count with 0.
- * 3. Always read stats and chart data from the DB, so expired-token users still
- *    see their last synced data rather than an empty dashboard.
- *
- * The leaderboard top-5 is fetched in the same Promise.all as the DB reads
- * so it adds zero additional latency.
- */
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { getHealthSummary, getDailySteps, getBodyMetrics } from '@/lib/google-fit'
@@ -26,6 +10,9 @@ import { StepsBarChart } from '@/components/steps-bar-chart'
 import { Icon } from '@/components/icon'
 
 export const metadata = { title: 'Dashboard — FitMe' }
+
+const STEP_GOAL = 10000
+const STREAK_THRESHOLD = 8000
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -44,7 +31,6 @@ export default async function DashboardPage() {
     profile?.google_token_expires_at &&
     new Date(profile.google_token_expires_at) > new Date()
 
-  // Sync from Google Fit when token is valid
   if (tokenValid) {
     try {
       const [health, dailySteps, body] = await Promise.all([
@@ -55,7 +41,6 @@ export default async function DashboardPage() {
 
       const today = new Date().toISOString().slice(0, 10)
 
-      // Upsert historical step-only rows first (past days, no calorie/HR data)
       if (dailySteps.length > 0) {
         const historicalRows = dailySteps
           .map((d, i) => {
@@ -70,13 +55,12 @@ export default async function DashboardPage() {
               synced_at: new Date().toISOString(),
             }
           })
-          .filter((r) => r.date !== today) // exclude today — handled below with full data
+          .filter((r) => r.date !== today)
         if (historicalRows.length > 0) {
           await supabase.from('health_daily').upsert(historicalRows, { onConflict: 'user_id,date' })
         }
       }
 
-      // Upsert today's full summary last so it always wins
       await supabase.from('health_daily').upsert({
         user_id: user.id,
         date: today,
@@ -85,7 +69,6 @@ export default async function DashboardPage() {
         synced_at: new Date().toISOString(),
       }, { onConflict: 'user_id,date' })
 
-      // Update body metrics on profile
       const bodyUpdate = {}
       if (body.weightKg !== null) bodyUpdate.weight_kg = body.weightKg
       if (body.heightCm !== null) bodyUpdate.height_cm = body.heightCm
@@ -97,34 +80,57 @@ export default async function DashboardPage() {
     }
   }
 
-  // Always serve from DB
   const today = new Date().toISOString().slice(0, 10)
   const sevenDaysAgo = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10)
+  const thirtyDaysAgo = new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10)
 
-  const [{ data: todayRow }, { data: weekRows }, { data: freshProfile }, { data: topUsers }] = await Promise.all([
-    supabase
-      .from('health_daily')
-      .select('steps, calories')
-      .eq('user_id', user.id)
-      .eq('date', today)
-      .maybeSingle(),
-    supabase
-      .from('health_daily')
-      .select('date, steps')
-      .eq('user_id', user.id)
-      .gte('date', sevenDaysAgo)
-      .order('date', { ascending: true }),
-    supabase
-      .from('profiles')
-      .select('weight_kg, height_cm')
-      .eq('id', user.id)
-      .single(),
+  const [
+    { data: todayRow },
+    { data: weekRows },
+    { data: freshProfile },
+    { data: topUsers },
+    { data: streakRows },
+    { data: pbRows },
+  ] = await Promise.all([
+    supabase.from('health_daily').select('steps, calories').eq('user_id', user.id).eq('date', today).maybeSingle(),
+    supabase.from('health_daily').select('date, steps').eq('user_id', user.id).gte('date', sevenDaysAgo).order('date', { ascending: true }),
+    supabase.from('profiles').select('weight_kg, height_cm').eq('id', user.id).single(),
     supabase.rpc('get_leaderboard', { period: 'today' }),
+    supabase.from('health_daily').select('date, steps').eq('user_id', user.id).gte('date', thirtyDaysAgo).order('date', { ascending: false }),
+    supabase.from('health_daily').select('steps').eq('user_id', user.id).lt('date', today).order('steps', { ascending: false }).limit(1),
   ])
 
   const hasData = !!todayRow
   const weightKg = freshProfile?.weight_kg ?? profile?.weight_kg
   const heightCm = freshProfile?.height_cm ?? profile?.height_cm
+
+  // Gamification: streak
+  const streakMap = Object.fromEntries((streakRows || []).map(r => [r.date, r.steps]))
+  let streak = 0
+  const checkDate = new Date()
+  if ((streakMap[today] ?? 0) < STREAK_THRESHOLD) checkDate.setDate(checkDate.getDate() - 1)
+  for (let i = 0; i < 30; i++) {
+    const d = checkDate.toISOString().slice(0, 10)
+    if ((streakMap[d] ?? 0) >= STREAK_THRESHOLD) { streak++; checkDate.setDate(checkDate.getDate() - 1) }
+    else break
+  }
+
+  // Gamification: personal best
+  const todaySteps = todayRow?.steps ?? 0
+  const prevBest = pbRows?.[0]?.steps ?? 0
+  const isPersonalBest = todaySteps > 0 && todaySteps > prevBest
+
+  // Gamification: step goal progress
+  const stepGoalPct = Math.min(100, Math.round((todaySteps / STEP_GOAL) * 100))
+
+  // Gamification: badges
+  const monthSteps = (streakRows || []).reduce((s, r) => s + (r.steps || 0), 0)
+  const everHit10k = prevBest >= STEP_GOAL || todaySteps >= STEP_GOAL
+  const badges = []
+  if (everHit10k) badges.push({ icon: 'emoji_events', label: '10K Club', color: 'text-yellow-500', title: 'Hit 10,000 steps in a day' })
+  if (streak >= 7) badges.push({ icon: 'local_fire_department', label: 'Week Warrior', color: 'text-orange-500', title: '7-day active streak' })
+  else if (streak >= 3) badges.push({ icon: 'bolt', label: 'On a Roll', color: 'text-blue-500', title: '3-day active streak' })
+  if (monthSteps >= 100000) badges.push({ icon: 'star', label: 'Century Club', color: 'text-purple-500', title: '100K steps this month' })
 
   const chartData = (weekRows ?? []).map((r) => ({
     date: new Date(r.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
@@ -169,8 +175,18 @@ export default async function DashboardPage() {
         </Alert>
       )}
 
+      {isPersonalBest && (
+        <div className="mb-6 flex items-center gap-3 px-4 py-3 rounded-xl bg-yellow-50 border border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-800">
+          <Icon name="emoji_events" size={24} className="text-yellow-500 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300">New personal best! 🎉</p>
+            <p className="text-xs text-yellow-700 dark:text-yellow-400">{todaySteps.toLocaleString()} steps — your best day ever</p>
+          </div>
+        </div>
+      )}
+
       {stats.length > 0 && (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3 mb-10">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3 mb-6">
           {stats.map((s) => (
             <Card key={s.label}>
               <CardContent className="pt-6">
@@ -179,6 +195,36 @@ export default async function DashboardPage() {
                 <p className="text-xs text-muted-foreground uppercase tracking-wide mt-1">{s.label}</p>
               </CardContent>
             </Card>
+          ))}
+        </div>
+      )}
+
+      {hasData && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-sm font-medium">Daily goal</span>
+            <span className="text-sm text-muted-foreground">{todaySteps.toLocaleString()} / {STEP_GOAL.toLocaleString()} steps</span>
+          </div>
+          <div className="h-3 bg-muted rounded-full overflow-hidden">
+            <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${stepGoalPct}%` }} />
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">{stepGoalPct}% of daily goal{stepGoalPct >= 100 ? ' — goal reached! 🎯' : ''}</p>
+        </div>
+      )}
+
+      {(streak > 0 || badges.length > 0) && (
+        <div className="flex flex-wrap items-center gap-2 mb-8">
+          {streak > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50 border border-orange-200 dark:bg-orange-950/20 dark:border-orange-800">
+              <Icon name="local_fire_department" size={16} className="text-orange-500" />
+              <span className="text-sm font-semibold text-orange-700 dark:text-orange-400">{streak}-day streak</span>
+            </div>
+          )}
+          {badges.map((b) => (
+            <div key={b.label} title={b.title} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted border border-border">
+              <Icon name={b.icon} size={16} className={b.color} />
+              <span className="text-sm font-medium">{b.label}</span>
+            </div>
           ))}
         </div>
       )}

@@ -1,19 +1,3 @@
-/**
- * Leaderboard page — ranks all users by step count. Server component.
- *
- * Three time periods are supported: today, last 7 days, this month.
- * The active tab is driven by the `?tab=` search param so each view is
- * server-rendered and shareable via URL — no client state needed.
- *
- * Data comes from the `get_leaderboard(period)` Postgres RPC function which
- * aggregates `health_daily` rows and applies ROW_NUMBER() for ranking.
- * SECURITY INVOKER means RLS still applies — only rows readable by the
- * authenticated user are included (the leaderboard RLS policy allows reading
- * all rows, so all users appear regardless of leaderboard_visible setting).
- *
- * Medal colours: gold (#1), silver (#2), bronze (#3) via Tailwind text colours.
- * The current user's row is highlighted with a primary border + tinted background.
- */
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -30,6 +14,7 @@ const TABS = [
 ]
 
 const MEDAL_COLORS = ['text-yellow-500', 'text-slate-400', 'text-amber-600']
+const TEAM_WEEKLY_GOAL = 500000
 
 function getDateLabel(tab) {
   const now = new Date()
@@ -43,6 +28,14 @@ function getDateLabel(tab) {
   return now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
 }
 
+function RankChange({ current, prev }) {
+  if (!prev) return null
+  const diff = Number(prev) - Number(current)
+  if (diff > 0) return <span className="text-xs font-semibold text-green-500">↑{diff}</span>
+  if (diff < 0) return <span className="text-xs font-semibold text-red-500">↓{Math.abs(diff)}</span>
+  return <span className="text-xs text-muted-foreground">—</span>
+}
+
 export default async function LeaderboardPage({ searchParams }) {
   const { tab: rawTab } = await searchParams
   const tab = TABS.find((t) => t.key === rawTab)?.key ?? 'today'
@@ -51,8 +44,16 @@ export default async function LeaderboardPage({ searchParams }) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/signin')
 
-  const { data: rows } = await supabase.rpc('get_leaderboard', { period: tab })
+  const sevenDaysAgo = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10)
+
+  const [{ data: rows }, { data: teamRows }] = await Promise.all([
+    supabase.rpc('get_leaderboard', { period: tab }),
+    supabase.from('health_daily').select('steps').gte('date', sevenDaysAgo),
+  ])
+
   const dateLabel = getDateLabel(tab)
+  const teamTotal = (teamRows || []).reduce((s, r) => s + (r.steps || 0), 0)
+  const teamGoalPct = Math.min(100, Math.round((teamTotal / TEAM_WEEKLY_GOAL) * 100))
 
   return (
     <>
@@ -60,6 +61,25 @@ export default async function LeaderboardPage({ searchParams }) {
         <h1 className="text-3xl font-bold mb-1">Leaderboard</h1>
         <p className="text-muted-foreground text-sm">Top walkers among opted-in users</p>
       </div>
+
+      <Card className="mb-6 border-primary/20 bg-primary/5">
+        <CardContent className="pt-5 pb-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Icon name="groups" size={20} className="text-primary" />
+              <span className="font-semibold text-sm">Team Weekly Challenge</span>
+            </div>
+            <span className="text-sm font-bold text-primary">{teamGoalPct}%</span>
+          </div>
+          <div className="h-2.5 bg-primary/20 rounded-full overflow-hidden mb-2">
+            <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${teamGoalPct}%` }} />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {teamTotal.toLocaleString()} / {TEAM_WEEKLY_GOAL.toLocaleString()} steps this week
+            {teamGoalPct >= 100 ? ' — goal smashed! 🎯' : ''}
+          </p>
+        </CardContent>
+      </Card>
 
       <div className="flex gap-2 mb-3">
         {TABS.map((t) => (
@@ -102,13 +122,14 @@ export default async function LeaderboardPage({ searchParams }) {
             return (
               <Card key={row.user_id} className={isMe ? 'border-primary bg-primary/5' : ''}>
                 <CardContent className="py-3 px-4 flex items-center gap-4">
-                  <span className="w-8 flex justify-center flex-shrink-0">
+                  <div className="w-10 flex flex-col items-center flex-shrink-0">
                     {medalColor ? (
                       <Icon name="emoji_events" size={22} className={medalColor} />
                     ) : (
                       <span className="text-sm font-bold text-muted-foreground">#{row.rank}</span>
                     )}
-                  </span>
+                    <RankChange current={row.rank} prev={row.prev_rank} />
+                  </div>
 
                   <Avatar className="h-9 w-9 flex-shrink-0">
                     {row.avatar_url && <AvatarImage src={row.avatar_url} alt={row.full_name} />}
