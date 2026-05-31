@@ -93,28 +93,67 @@ export default function HelpPage() {
               Once you cross 8,000 today, your streak extends automatically on the next sync.
             </li>
           </ul>
-          <div className="mt-4 p-4 rounded-xl bg-muted border border-border space-y-3">
-            <p className="font-medium text-foreground">Edge case — why your streak won&apos;t break mid-day</p>
-            <p>
-              Imagine you have a 5-day streak going. It&apos;s 7am on Day 6 and you haven&apos;t walked yet —
-              Google Fit shows 0 steps for today.
-            </p>
-            <p>
-              Without the grace period, the app would check today first, see 0 steps, and immediately reset your streak to 0.
-              That would be frustrating and unfair — the day isn&apos;t over yet.
-            </p>
-            <p>
-              Instead, FitMe checks: <span className="font-medium">&quot;Did today already hit 8,000?&quot;</span>
-            </p>
-            <ul className="list-none space-y-1.5 pl-1">
-              <li>✅ <span className="font-medium">Yes</span> → count today, then go backwards. Streak grows.</li>
-              <li>⏳ <span className="font-medium">Not yet</span> → skip today, start from yesterday. Streak is preserved.</li>
-            </ul>
-            <p>So your 5-day streak stays intact all morning. The moment you hit 8,000 steps, the next sync picks it up and your streak becomes 6.</p>
-            <p className="text-muted-foreground">
-              This only protects you while the day is still in progress. If you genuinely missed yesterday
-              (under 8,000 steps all day), the streak correctly resets to 0.
-            </p>
+          <div className="mt-4 rounded-xl border border-border overflow-hidden">
+            <div className="px-4 py-3 bg-muted border-b border-border">
+              <p className="font-semibold text-sm">Edge case — why your streak won&apos;t break mid-day</p>
+            </div>
+            <div className="p-4 space-y-4 text-sm">
+
+              <p>
+                Imagine you had a 5-day streak going. It&apos;s 7am on Day 6 — you haven&apos;t walked yet.
+                Your Google Fit data for today shows 0 steps.
+              </p>
+
+              <div>
+                <p className="font-medium mb-2">Without the edge case, the algorithm would:</p>
+                <pre className="bg-muted rounded-lg px-3 py-2.5 text-xs leading-relaxed overflow-x-auto text-foreground/80">{`Day 6 (today) → 0 steps ✗ → STOP immediately → streak = 0`}</pre>
+                <p className="mt-2 text-muted-foreground">Your 5-day streak is wiped out just because you woke up and haven&apos;t walked yet. That&apos;s wrong and frustrating.</p>
+              </div>
+
+              <hr className="border-border" />
+
+              <div>
+                <p className="font-medium mb-2">What the edge case does</p>
+                <p className="text-muted-foreground mb-2">Before starting the loop, it checks today&apos;s steps:</p>
+                <ul className="space-y-1.5 mb-3">
+                  <li>• <span className="font-medium">Today ≥ 8,000 steps</span> → start counting from <span className="font-medium">today</span> → today can extend the streak</li>
+                  <li>• <span className="font-medium">Today &lt; 8,000 steps</span> → start counting from <span className="font-medium">yesterday</span> → today is ignored, yesterday&apos;s streak is preserved</li>
+                </ul>
+                <p className="text-muted-foreground mb-2">So the same scenario becomes:</p>
+                <pre className="bg-muted rounded-lg px-3 py-2.5 text-xs leading-relaxed overflow-x-auto text-foreground/80">{`Day 6 (today) → 0 steps   → skip today, start from yesterday
+Day 5         → 11,000 ✓  streak: 1
+Day 4         →  9,500 ✓  streak: 2
+Day 3         →  8,200 ✓  streak: 3
+Day 2         → 10,000 ✓  streak: 4
+Day 1         →  9,000 ✓  streak: 5
+Day 0         →  6,000 ✗  stop
+→ streak = 5 ✓ preserved`}</pre>
+              </div>
+
+              <div>
+                <p className="text-muted-foreground mb-2">Once you actually walk 8,000+ steps today, the algorithm switches to counting from today:</p>
+                <pre className="bg-muted rounded-lg px-3 py-2.5 text-xs leading-relaxed overflow-x-auto text-foreground/80">{`Day 6 (today) →  8,500 ✓  streak: 1
+Day 5         → 11,000 ✓  streak: 2
+Day 4         →  9,500 ✓  streak: 3
+Day 3         →  8,200 ✓  streak: 4
+Day 2         → 10,000 ✓  streak: 5
+Day 1         →  9,000 ✓  streak: 6
+Day 0         →  6,000 ✗  stop
+→ streak = 6 ✓ extended`}</pre>
+              </div>
+
+              <hr className="border-border" />
+
+              <div>
+                <p className="font-medium mb-2">One limitation</p>
+                <p className="text-muted-foreground mb-2">If you genuinely missed yesterday (0 steps), the skip still happens:</p>
+                <pre className="bg-muted rounded-lg px-3 py-2.5 text-xs leading-relaxed overflow-x-auto text-foreground/80">{`Today     → 0 steps → skip to yesterday
+Yesterday → 0 steps ✗ → stop
+→ streak = 0`}</pre>
+                <p className="mt-2 text-muted-foreground">That&apos;s correct — the streak should break if you actually missed a day.</p>
+              </div>
+
+            </div>
           </div>
           <p className="text-muted-foreground mt-3">
             The streak card on the Dashboard shows the last 7 days. The Profile page shows the full month calendar.
