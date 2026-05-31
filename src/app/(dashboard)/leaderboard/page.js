@@ -55,7 +55,7 @@ export default async function LeaderboardPage({ searchParams }) {
       </div>
 
 
-      <div className="flex gap-2 mb-3">
+      <div className="flex gap-2 mb-3 max-w-[600px]">
         {TABS.map((t) => (
           <Link
             key={t.key}
@@ -70,7 +70,7 @@ export default async function LeaderboardPage({ searchParams }) {
           </Link>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground mb-6">{dateLabel}</p>
+      <p className="text-xs text-muted-foreground mb-6 max-w-[600px]">{dateLabel}</p>
 
       {!rows || rows.length === 0 ? (
         <Card className="max-w-[600px]">
@@ -110,12 +110,12 @@ export default async function LeaderboardPage({ searchParams }) {
                     <AvatarFallback className="text-xs font-bold">{initials}</AvatarFallback>
                   </Avatar>
 
-                  <span className="flex-1 font-medium text-sm">
+                  <span className="flex-1 min-w-0 font-medium text-sm truncate">
                     {row.full_name}
                     {isMe && <span className="ml-2 text-xs text-primary font-semibold">you</span>}
                   </span>
 
-                  <span className="font-bold tabular-nums text-sm">
+                  <span className="font-bold tabular-nums text-sm flex-shrink-0">
                     {Number(row.total_steps).toLocaleString()} steps
                   </span>
                 </CardContent>

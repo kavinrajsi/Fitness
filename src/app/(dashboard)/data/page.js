@@ -80,7 +80,10 @@ export default async function DataPage() {
     .limit(30)
 
   const activeDaysThisWeek = (dailySteps || []).filter(d => d.steps > 0).length
-  const chartData = dailySteps.map((d) => ({ date: d.date, steps: d.steps }))
+  const chartData = dailySteps.map((d) => ({
+    date: new Date((d.isoDate || d.date) + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+    steps: d.steps,
+  }))
 
   return (
     <>
@@ -88,6 +91,20 @@ export default async function DataPage() {
         <h1 className="text-3xl font-bold mb-1">My Data</h1>
         <p className="text-muted-foreground text-sm">All your health data from Google Fit</p>
       </div>
+
+      {!profile?.google_access_token && (
+        <div className="mb-6 flex items-center justify-between gap-4 px-4 py-3 rounded-xl bg-blue-50 border border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
+          <p className="text-sm text-gray-700 dark:text-blue-200">Connect your Google Fit account to see your health data.</p>
+          <a href="/auth/google" className="shrink-0 text-sm font-medium underline hover:opacity-80 transition-opacity">Connect</a>
+        </div>
+      )}
+
+      {profile?.google_access_token && !tokenValid && (
+        <div className="mb-6 flex items-center justify-between gap-4 px-4 py-3 rounded-xl bg-orange-50 border border-orange-200 dark:bg-orange-950/20 dark:border-orange-800">
+          <p className="text-sm text-gray-700 dark:text-orange-200">Your Google Fit session expired — showing last synced data.</p>
+          <a href="/auth/google" className="shrink-0 text-sm font-medium underline hover:opacity-80 transition-opacity">Reconnect</a>
+        </div>
+      )}
 
       {/* Activity — Today */}
       {health && (

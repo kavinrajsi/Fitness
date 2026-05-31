@@ -16,7 +16,7 @@ import { Icon } from '@/components/icon'
 const links = [
   { href: '/dashboard',   label: 'Dashboard',   icon: 'home' },
   { href: '/data',        label: 'Data',         icon: 'bar_chart' },
-  { href: '/leaderboard', label: 'Leaderboard',  icon: 'emoji_events' },
+  { href: '/leaderboard', label: 'Leaderboard', mobileLabel: 'Leaders', icon: 'emoji_events' },
   { href: '/profile',     label: 'Profile',      icon: 'person' },
   { href: '/help',        label: 'Help',         icon: 'help' },
 ]
@@ -50,7 +50,7 @@ export function NavLinks() {
       <nav
         className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex bg-background border-t border-border safe-bottom"
       >
-        {links.map(({ href, label, icon }) => {
+        {links.map(({ href, label, mobileLabel, icon }) => {
           const active = pathname === href
           return (
             <Link
@@ -61,7 +61,7 @@ export function NavLinks() {
               }`}
             >
               <Icon name={icon} size={22} />
-              <span className="text-[10px] font-medium leading-tight">{label}</span>
+              <span className="text-[10px] font-medium leading-tight">{mobileLabel ?? label}</span>
             </Link>
           )
         })}

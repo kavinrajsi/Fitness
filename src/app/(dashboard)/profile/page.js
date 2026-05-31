@@ -62,7 +62,7 @@ export default function ProfilePage() {
     setSaving(false)
   }
 
-  if (loading) return <p className="text-muted-foreground">Loading…</p>
+  if (loading) return <p className="text-center text-muted-foreground py-20">Loading…</p>
 
   const initials = (profile.full_name || user?.email || '?')
     .split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
@@ -193,6 +193,7 @@ export default function ProfilePage() {
         <CardContent className="pt-6">
           <h2 className="text-base font-semibold mb-1">Privacy</h2>
           <p className="text-muted-foreground text-sm mb-3">Your steps appear on the leaderboard.</p>
+          <p className="text-xs text-muted-foreground mb-2">A privacy toggle to opt out is coming soon.</p>
           <p className="text-sm font-medium flex items-center gap-2">
             <Icon name="emoji_events" size={18} className="text-muted-foreground" /> Show me on the leaderboard
           </p>

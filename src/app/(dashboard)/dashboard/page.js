@@ -173,13 +173,13 @@ export default async function DashboardPage() {
   return (
     <>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-1">Good day, {name} 👋</h1>
+        <h1 className="text-3xl font-bold mb-1">Good day, {name}</h1>
         <p className="text-muted-foreground text-sm">Here&apos;s your fitness overview</p>
       </div>
 
       {!profile?.google_access_token && (
-        <Alert className="mb-6 flex items-center justify-between gap-4 bg-blue-50 border-blue-200">
-          <AlertDescription className="text-sm text-gray-700">
+        <Alert className="mb-6 flex items-center justify-between gap-4 bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
+          <AlertDescription className="text-sm text-gray-700 dark:text-blue-200">
             Connect your Google Fit account to see your health data.
           </AlertDescription>
           <a href="/auth/google" className={buttonVariants({ size: 'sm', className: 'shrink-0' })}>
@@ -189,8 +189,8 @@ export default async function DashboardPage() {
       )}
 
       {profile?.google_access_token && !tokenValid && (
-        <Alert className="mb-6 flex items-center justify-between gap-4 bg-orange-50 border-orange-200">
-          <AlertDescription className="text-sm text-gray-700">
+        <Alert className="mb-6 flex items-center justify-between gap-4 bg-orange-50 border-orange-200 dark:bg-orange-950/20 dark:border-orange-800">
+          <AlertDescription className="text-sm text-gray-700 dark:text-orange-200">
             Your Google Fit session expired — showing last synced data.
           </AlertDescription>
           <a href="/auth/google" className={buttonVariants({ size: 'sm', className: 'shrink-0' })}>
@@ -203,7 +203,7 @@ export default async function DashboardPage() {
         <div className="mb-6 flex items-center gap-3 px-4 py-3 rounded-xl bg-yellow-50 border border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-800">
           <Icon name="emoji_events" size={24} className="text-yellow-500 flex-shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300">New personal best! 🎉</p>
+            <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300">New personal best!</p>
             <p className="text-xs text-yellow-700 dark:text-yellow-400">{todaySteps.toLocaleString()} steps — your best day ever</p>
           </div>
         </div>
@@ -232,11 +232,11 @@ export default async function DashboardPage() {
           <div className="h-3 bg-muted rounded-full overflow-hidden">
             <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${stepGoalPct}%` }} />
           </div>
-          <p className="text-xs text-muted-foreground mt-1">{stepGoalPct}% of daily goal{stepGoalPct >= 100 ? ' — goal reached! 🎯' : ''}</p>
+          <p className="text-xs text-muted-foreground mt-1">{stepGoalPct}% of daily goal{stepGoalPct >= 100 ? ' — goal reached!' : ''}</p>
         </div>
       )}
 
-      <Card className="mb-6">
+      {(streak > 0 || hasData) && <Card className="mb-6">
         <CardContent className="pt-5 pb-5">
           <p className="text-sm font-semibold mb-4">Your streak</p>
           <div className="flex items-center gap-4">
@@ -265,7 +265,7 @@ export default async function DashboardPage() {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card>}
 
       {badges.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 mb-8">

@@ -37,7 +37,7 @@ export function StepsBarChart({ data }) {
           axisLine={false}
           tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
           tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}
-          width={32}
+          width={40}
         />
         <ChartTooltip
           content={

@@ -1,9 +1,14 @@
+import Link from 'next/link'
+
 export const metadata = { title: 'Terms of Service — FitMe' }
 
 export default function TermsPage() {
   return (
     <main className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-[720px] mx-auto">
+        <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8">
+          ← Back to FitMe
+        </Link>
         <h1 className="text-4xl font-bold mb-1">Terms of Service</h1>
         <p className="text-muted-foreground text-sm mb-10">Effective date: 31 May 2026</p>
 
