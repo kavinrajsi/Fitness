@@ -87,11 +87,10 @@ export async function getHealthSummary(googleAccessToken) {
   const today = todayRange()
   const week = weekRange()
 
-  const [stepsToday, calsToday, heartData, stepsWeek, activeData, distanceData] =
+  const [stepsToday, calsToday, stepsWeek, activeData, distanceData] =
     await Promise.all([
       aggregate(googleAccessToken, 'com.google.step_count.delta', today),
       aggregate(googleAccessToken, 'com.google.calories.expended', today),
-      aggregate(googleAccessToken, 'com.google.heart_rate.bpm', today),
       aggregate(googleAccessToken, 'com.google.step_count.delta', week),
       aggregate(googleAccessToken, 'com.google.active_minutes', today),
       aggregate(googleAccessToken, 'com.google.distance.delta', today),
@@ -102,15 +101,11 @@ export async function getHealthSummary(googleAccessToken) {
     (b) => (b.dataset?.[0]?.point?.[0]?.value?.[0]?.intVal ?? 0) > 0
   ).length
 
-  const hrPoint = heartData?.bucket?.[0]?.dataset?.[0]?.point?.[0]
-  const avgHr = hrPoint?.value?.[0]?.fpVal ? Math.round(hrPoint.value[0].fpVal) : null
-
   const distM = distanceData?.bucket?.[0]?.dataset?.[0]?.point?.[0]?.value?.[0]?.fpVal ?? 0
 
   return {
     stepsToday: extractInt(stepsToday),
     caloriesToday: extractFp(calsToday),
-    avgHeartRate: avgHr,
     activeDaysThisWeek: activeDays,
     activeMinutesToday: extractInt(activeData),
     distanceKm: distM ? Math.round(distM / 10) / 100 : 0,

@@ -40,7 +40,7 @@ export default function HomePage() {
           {[
             { icon: 'directions_walk', label: 'Steps' },
             { icon: 'local_fire_department', label: 'Calories' },
-            { icon: 'favorite', label: 'Heart Rate' },
+            { icon: 'timer', label: 'Active Minutes' },
             { icon: 'bedtime', label: 'Sleep' },
           ].map(({ icon, label }) => (
             <div key={label} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-card border border-border">

@@ -27,7 +27,6 @@ export default function PrivacyPage() {
           <ul className="list-disc pl-6 space-y-1 mt-2">
             <li>Daily step count (up to 7 days of history)</li>
             <li>Calories burned (today only)</li>
-            <li>Average heart rate (today only)</li>
             <li>Body weight and height (stored on your profile)</li>
           </ul>
           <p className="mt-3">From Google Fit we read <strong>but do not store</strong>:</p>

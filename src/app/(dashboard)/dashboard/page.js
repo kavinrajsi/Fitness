@@ -82,7 +82,6 @@ export default async function DashboardPage() {
         date: today,
         steps: health.stepsToday,
         calories: health.caloriesToday,
-        avg_heart_rate: health.avgHeartRate,
         synced_at: new Date().toISOString(),
       }, { onConflict: 'user_id,date' })
 
@@ -105,7 +104,7 @@ export default async function DashboardPage() {
   const [{ data: todayRow }, { data: weekRows }, { data: freshProfile }, { data: topUsers }] = await Promise.all([
     supabase
       .from('health_daily')
-      .select('steps, calories, avg_heart_rate')
+      .select('steps, calories')
       .eq('user_id', user.id)
       .eq('date', today)
       .maybeSingle(),
@@ -136,7 +135,6 @@ export default async function DashboardPage() {
     ? [
         { label: 'Steps today', value: (todayRow.steps ?? 0).toLocaleString(), icon: 'directions_walk' },
         { label: 'Calories burned', value: `${(todayRow.calories ?? 0).toLocaleString()} kcal`, icon: 'local_fire_department' },
-        { label: 'Avg heart rate', value: todayRow.avg_heart_rate ? `${todayRow.avg_heart_rate} bpm` : '—', icon: 'monitor_heart' },
         { label: 'Weight', value: weightKg ? `${weightKg} kg` : '—', icon: 'monitor_weight' },
         { label: 'Height', value: heightCm ? `${heightCm} cm` : '—', icon: 'height' },
       ]

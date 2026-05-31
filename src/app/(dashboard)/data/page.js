@@ -74,7 +74,7 @@ export default async function DataPage() {
   // Full history from DB
   const { data: history } = await supabase
     .from('health_daily')
-    .select('date, steps, calories, avg_heart_rate')
+    .select('date, steps, calories')
     .eq('user_id', user.id)
     .order('date', { ascending: false })
     .limit(30)
@@ -97,7 +97,6 @@ export default async function DataPage() {
             <STAT icon="local_fire_department" label="Calories" value={`${health.caloriesToday.toLocaleString()} kcal`} />
             <STAT icon="timer" label="Active minutes" value={`${health.activeMinutesToday} min`} />
             <STAT icon="route" label="Distance" value={`${health.distanceKm} km`} />
-            <STAT icon="monitor_heart" label="Avg heart rate" value={health.avgHeartRate ? `${health.avgHeartRate} bpm` : '—'} />
             <STAT icon="event_available" label="Active days (week)" value={`${health.activeDaysThisWeek} / 7`} />
           </div>
         </section>
@@ -190,7 +189,6 @@ export default async function DataPage() {
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
                       <th className="text-right px-4 py-3 font-medium text-muted-foreground">Steps</th>
                       <th className="text-right px-4 py-3 font-medium text-muted-foreground">Calories</th>
-                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">Heart rate</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -209,9 +207,6 @@ export default async function DataPage() {
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
                           {row.calories > 0 ? `${row.calories.toLocaleString()} kcal` : '—'}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
-                          {row.avg_heart_rate ? `${row.avg_heart_rate} bpm` : '—'}
                         </td>
                       </tr>
                     ))}
