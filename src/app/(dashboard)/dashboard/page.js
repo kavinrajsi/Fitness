@@ -115,6 +115,21 @@ export default async function DashboardPage() {
     else break
   }
 
+  // 7-day calendar for streak card
+  const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() - (6 - i))
+    const dateStr = d.toISOString().slice(0, 10)
+    return {
+      date: dateStr,
+      dayLetter: DAY_LETTERS[d.getDay()],
+      dayNum: d.getDate(),
+      active: (streakMap[dateStr] ?? 0) >= STREAK_THRESHOLD,
+      isToday: dateStr === today,
+    }
+  })
+
   // Gamification: personal best
   const todaySteps = todayRow?.steps ?? 0
   const prevBest = pbRows?.[0]?.steps ?? 0
@@ -212,14 +227,39 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {(streak > 0 || badges.length > 0) && (
-        <div className="flex flex-wrap items-center gap-2 mb-8">
-          {streak > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50 border border-orange-200 dark:bg-orange-950/20 dark:border-orange-800">
-              <Icon name="local_fire_department" size={16} className="text-orange-500" />
-              <span className="text-sm font-semibold text-orange-700 dark:text-orange-400">{streak}-day streak</span>
+      <Card className="mb-6">
+        <CardContent className="pt-5 pb-5">
+          <p className="text-sm font-semibold mb-4">Your streak</p>
+          <div className="flex items-center gap-4">
+            <div className="flex flex-col items-center min-w-[52px]">
+              <Icon name="local_fire_department" size={34} className="text-orange-500" />
+              <span className="text-2xl font-bold leading-tight">{streak}</span>
+              <span className="text-[11px] text-muted-foreground">{streak === 1 ? 'day' : 'days'}</span>
             </div>
-          )}
+            <div className="flex-1 flex justify-between">
+              {last7Days.map(({ date, dayLetter, dayNum, active, isToday }) => (
+                <div key={date} className="flex flex-col items-center gap-1.5">
+                  <span className="text-[11px] text-muted-foreground font-medium">{dayLetter}</span>
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold transition-colors ${
+                    active
+                      ? 'bg-foreground text-background'
+                      : isToday
+                      ? 'border-2 border-foreground text-foreground'
+                      : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {active
+                      ? <Icon name="directions_walk" size={17} />
+                      : dayNum}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {badges.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-8">
           {badges.map((b) => (
             <div key={b.label} title={b.title} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted border border-border">
               <Icon name={b.icon} size={16} className={b.color} />
