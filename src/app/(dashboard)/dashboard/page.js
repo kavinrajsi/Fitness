@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { getHealthSummary, getDailySteps, getBodyMetrics, getSleepData, getActivitySessions } from '@/lib/google-fit'
+import { refreshGoogleToken } from '@/lib/google-auth'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -35,15 +36,34 @@ export default async function DashboardPage() {
   let updatedHeightCm = null
   // activeDaysThisWeek computed from getDailySteps daily buckets (correct)
   let activeDaysThisWeek = 0
+  // Track whether we still need the reconnect banner after a refresh attempt
+  let sessionExpired = profile?.google_access_token && !tokenValid
 
-  if (tokenValid) {
+  // Resolve the access token — refresh if expired and a refresh token is stored
+  let accessToken = profile?.google_access_token
+  if (!tokenValid && profile?.google_refresh_token) {
+    try {
+      const refreshed = await refreshGoogleToken(profile.google_refresh_token)
+      if (refreshed) {
+        accessToken = refreshed.access_token
+        const expiresAt = new Date(Date.now() + (refreshed.expires_in ?? 3600) * 1000).toISOString()
+        await supabase.from('profiles').update({
+          google_access_token: accessToken,
+          google_token_expires_at: expiresAt,
+        }).eq('id', user.id)
+        sessionExpired = false
+      }
+    } catch { /* refresh failed — fall through */ }
+  }
+
+  if (accessToken && (tokenValid || !sessionExpired)) {
     try {
       const [health, dailySteps, body, sleep, activities] = await Promise.all([
-        getHealthSummary(profile.google_access_token),
-        getDailySteps(profile.google_access_token),
-        getBodyMetrics(profile.google_access_token),
-        getSleepData(profile.google_access_token),
-        getActivitySessions(profile.google_access_token, 7),
+        getHealthSummary(accessToken),
+        getDailySteps(accessToken),
+        getBodyMetrics(accessToken),
+        getSleepData(accessToken),
+        getActivitySessions(accessToken, 7),
       ])
 
       const today = new Date().toISOString().slice(0, 10)
@@ -213,7 +233,7 @@ export default async function DashboardPage() {
         </Alert>
       )}
 
-      {profile?.google_access_token && !tokenValid && (
+      {sessionExpired && (
         <Alert className="mb-6 flex items-center justify-between gap-4 bg-orange-50 border-orange-200 dark:bg-orange-950/20 dark:border-orange-800">
           <AlertDescription className="text-sm text-gray-700 dark:text-orange-200">
             Your Google Fit session expired — showing last synced data.

@@ -42,7 +42,7 @@ export async function proxy(request) {
 
   const { pathname } = request.nextUrl
 
-  const protectedPaths = ['/dashboard', '/profile']
+  const protectedPaths = ['/dashboard', '/profile', '/admin']
 
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p))
   const isSignIn = pathname === '/signin'

@@ -21,6 +21,7 @@ import {
   getSleepData,
   getActivitySessions,
 } from '@/lib/google-fit'
+import { refreshGoogleToken } from '@/lib/google-auth'
 
 function serviceClient() {
   return createClient(
@@ -28,22 +29,6 @@ function serviceClient() {
     process.env.SUPABASE_SERVICE_ROLE_KEY,
     { auth: { persistSession: false } }
   )
-}
-
-async function refreshGoogleToken(refreshToken) {
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'refresh_token',
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      refresh_token: refreshToken,
-    }),
-  })
-  if (!res.ok) return null
-  const data = await res.json()
-  return data.access_token ? data : null
 }
 
 async function syncUser(supabase, profile) {

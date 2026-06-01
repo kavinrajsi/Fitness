@@ -18,6 +18,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { getHealthSummary, getDailySteps, getBodyMetrics, getSleepData, getActivitySessions } from '@/lib/google-fit'
+import { refreshGoogleToken } from '@/lib/google-auth'
 import { Card, CardContent } from '@/components/ui/card'
 import { StepsBarChart } from '@/components/steps-bar-chart'
 import { Icon } from '@/components/icon'
@@ -52,15 +53,32 @@ export default async function DataPage() {
     new Date(profile.google_token_expires_at) > new Date()
 
   let health = null, dailySteps = [], body = { weightKg: null, heightCm: null }, sleep = null, activities = []
+  let sessionExpired = profile?.google_access_token && !tokenValid
 
-  if (tokenValid) {
+  let accessToken = profile?.google_access_token
+  if (!tokenValid && profile?.google_refresh_token) {
+    try {
+      const refreshed = await refreshGoogleToken(profile.google_refresh_token)
+      if (refreshed) {
+        accessToken = refreshed.access_token
+        const expiresAt = new Date(Date.now() + (refreshed.expires_in ?? 3600) * 1000).toISOString()
+        await supabase.from('profiles').update({
+          google_access_token: accessToken,
+          google_token_expires_at: expiresAt,
+        }).eq('id', user.id)
+        sessionExpired = false
+      }
+    } catch { /* refresh failed — fall through */ }
+  }
+
+  if (accessToken && (tokenValid || !sessionExpired)) {
     try {
       ;[health, dailySteps, body, sleep, activities] = await Promise.all([
-        getHealthSummary(profile.google_access_token),
-        getDailySteps(profile.google_access_token),
-        getBodyMetrics(profile.google_access_token),
-        getSleepData(profile.google_access_token),
-        getActivitySessions(profile.google_access_token, 7),
+        getHealthSummary(accessToken),
+        getDailySteps(accessToken),
+        getBodyMetrics(accessToken),
+        getSleepData(accessToken),
+        getActivitySessions(accessToken, 7),
       ])
     } catch { /* token may be revoked */ }
   }
@@ -79,7 +97,6 @@ export default async function DataPage() {
     .order('date', { ascending: false })
     .limit(30)
 
-  const activeDaysThisWeek = (dailySteps || []).filter(d => d.steps > 0).length
   const chartData = dailySteps.map((d) => ({
     date: new Date((d.isoDate || d.date) + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
     steps: d.steps,
@@ -99,7 +116,7 @@ export default async function DataPage() {
         </div>
       )}
 
-      {profile?.google_access_token && !tokenValid && (
+      {sessionExpired && (
         <div className="mb-6 flex items-center justify-between gap-4 px-4 py-3 rounded-xl bg-orange-50 border border-orange-200 dark:bg-orange-950/20 dark:border-orange-800">
           <p className="text-sm text-gray-700 dark:text-orange-200">Your Google Fit session expired — showing last synced data.</p>
           <a href="/auth/google" className="shrink-0 text-sm font-medium underline hover:opacity-80 transition-opacity">Reconnect</a>
@@ -115,7 +132,6 @@ export default async function DataPage() {
             <STAT icon="local_fire_department" label="Calories" value={`${health.caloriesToday.toLocaleString()} kcal`} />
             <STAT icon="timer" label="Active minutes" value={`${health.activeMinutesToday} min`} />
             <STAT icon="route" label="Distance" value={`${health.distanceKm} km`} />
-            <STAT icon="event_available" label="Active days (week)" value={`${activeDaysThisWeek} / 7`} />
           </div>
         </section>
       )}
