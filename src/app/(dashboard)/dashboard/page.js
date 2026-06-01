@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { getHealthSummary, getDailySteps, getBodyMetrics } from '@/lib/google-fit'
+import { getHealthSummary, getDailySteps, getBodyMetrics, getSleepData, getActivitySessions } from '@/lib/google-fit'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -37,13 +37,16 @@ export default async function DashboardPage() {
 
   if (tokenValid) {
     try {
-      const [health, dailySteps, body] = await Promise.all([
+      const [health, dailySteps, body, sleep, activities] = await Promise.all([
         getHealthSummary(profile.google_access_token),
         getDailySteps(profile.google_access_token),
         getBodyMetrics(profile.google_access_token),
+        getSleepData(profile.google_access_token),
+        getActivitySessions(profile.google_access_token, 7),
       ])
 
       const today = new Date().toISOString().slice(0, 10)
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
 
       // Compute active days from daily buckets (each bucket = one calendar day)
       activeDaysThisWeek = dailySteps.filter(d => d.steps > 0).length
@@ -57,6 +60,9 @@ export default async function DashboardPage() {
             date: d.isoDate,
             steps: d.steps,
             calories: d.calories ?? 0,
+            active_minutes: d.activeMinutes ?? null,
+            distance_km: d.distanceKm ?? null,
+            sleep_minutes: d.isoDate === yesterday ? (sleep?.minutes ?? null) : null,
             avg_heart_rate: null,
             synced_at: new Date().toISOString(),
           }))
@@ -70,8 +76,26 @@ export default async function DashboardPage() {
         date: today,
         steps: health.stepsToday,
         calories: health.caloriesToday,
+        active_minutes: health.activeMinutesToday,
+        distance_km: health.distanceKm,
         synced_at: new Date().toISOString(),
       }, { onConflict: 'user_id,date' })
+
+      if (activities.length > 0) {
+        const sessionRows = activities.map(a => ({
+          id: a.id,
+          user_id: user.id,
+          name: a.name,
+          icon: a.icon,
+          activity_type: a.activityType,
+          start_time: new Date(a.startMs).toISOString(),
+          end_time: new Date(a.endMs).toISOString(),
+          duration_min: a.durationMin,
+          steps: a.steps,
+          synced_at: new Date().toISOString(),
+        }))
+        await supabase.from('activity_sessions').upsert(sessionRows, { onConflict: 'id,user_id' })
+      }
 
       // Track body updates locally so we don't need a second profiles fetch
       if (body.weightKg !== null) updatedWeightKg = body.weightKg

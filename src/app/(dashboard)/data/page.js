@@ -74,7 +74,7 @@ export default async function DataPage() {
   // Full history from DB
   const { data: history } = await supabase
     .from('health_daily')
-    .select('date, steps, calories')
+    .select('date, steps, calories, active_minutes, distance_km, sleep_minutes')
     .eq('user_id', user.id)
     .order('date', { ascending: false })
     .limit(30)
@@ -135,7 +135,7 @@ export default async function DataPage() {
                 sub={bmi < 18.5 ? 'Underweight' : bmi < 25 ? 'Normal' : bmi < 30 ? 'Overweight' : 'Obese'}
               />
             )}
-            {sleep && <STAT icon="bedtime" label="Sleep last night" value={sleep} />}
+            {sleep && <STAT icon="bedtime" label="Sleep last night" value={sleep.display} />}
           </div>
         </section>
       )}
@@ -207,6 +207,9 @@ export default async function DataPage() {
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
                       <th className="text-right px-4 py-3 font-medium text-muted-foreground">Steps</th>
                       <th className="text-right px-4 py-3 font-medium text-muted-foreground">Calories</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Active min</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Distance</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Sleep</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -225,6 +228,17 @@ export default async function DataPage() {
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
                           {row.calories > 0 ? `${row.calories.toLocaleString()} kcal` : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums text-muted-foreground hidden sm:table-cell">
+                          {row.active_minutes > 0 ? `${row.active_minutes} min` : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums text-muted-foreground hidden sm:table-cell">
+                          {row.distance_km > 0 ? `${row.distance_km} km` : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums text-muted-foreground hidden md:table-cell">
+                          {row.sleep_minutes > 0
+                            ? `${Math.floor(row.sleep_minutes / 60)}h ${row.sleep_minutes % 60}m`
+                            : '—'}
                         </td>
                       </tr>
                     ))}

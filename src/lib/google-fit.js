@@ -118,6 +118,8 @@ export async function getDailySteps(googleAccessToken) {
       aggregateBy: [
         { dataTypeName: 'com.google.step_count.delta' },
         { dataTypeName: 'com.google.calories.expended' },
+        { dataTypeName: 'com.google.active_minutes' },
+        { dataTypeName: 'com.google.distance.delta' },
       ],
       bucketByTime: { durationMillis: 86400000 },
       startTimeMillis: start.getTime(),
@@ -130,11 +132,14 @@ export async function getDailySteps(googleAccessToken) {
   const data = await res.json()
   return (data.bucket ?? []).map((bucket) => {
     const date = new Date(Number(bucket.startTimeMillis))
+    const distM = bucket.dataset?.[3]?.point?.[0]?.value?.[0]?.fpVal ?? 0
     return {
       date: date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
       isoDate: date.toISOString().slice(0, 10),
       steps: bucket.dataset?.[0]?.point?.[0]?.value?.[0]?.intVal ?? 0,
       calories: Math.round(bucket.dataset?.[1]?.point?.[0]?.value?.[0]?.fpVal ?? 0),
+      activeMinutes: bucket.dataset?.[2]?.point?.[0]?.value?.[0]?.intVal ?? 0,
+      distanceKm: distM ? Math.round(distM / 10) / 100 : 0,
     }
   })
 }
@@ -262,6 +267,6 @@ export async function getSleepData(googleAccessToken) {
   }
 
   const hours = Math.floor(totalMs / 3600000)
-  const minutes = Math.floor((totalMs % 3600000) / 60000)
-  return totalMs > 0 ? `${hours}h ${minutes}m` : null
+  const mins = Math.floor((totalMs % 3600000) / 60000)
+  return totalMs > 0 ? { display: `${hours}h ${mins}m`, minutes: Math.round(totalMs / 60000) } : null
 }
