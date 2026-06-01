@@ -46,12 +46,13 @@ export async function proxy(request) {
 
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p))
   const isSignIn = pathname === '/signin'
+  const isHome = pathname === '/'
 
   if (!user && isProtected) {
     return NextResponse.redirect(new URL('/signin', request.url))
   }
 
-  if (user && isSignIn) {
+  if (user && (isSignIn || isHome)) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
