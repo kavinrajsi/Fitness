@@ -8,6 +8,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { StepsBarChart } from '@/components/steps-bar-chart'
 import { Icon } from '@/components/icon'
+import { StreakInfoDrawer } from '@/components/streak-info-drawer'
 import { STEP_GOAL, STREAK_THRESHOLD } from '@/lib/constants'
 
 export const metadata = { title: 'Dashboard — FitMe' }
@@ -262,7 +263,10 @@ export default async function DashboardPage() {
 
       {(streak > 0 || hasData) && <Card className="mb-6">
         <CardContent className="pt-5 pb-5">
-          <p className="text-sm font-semibold mb-4">Your streak</p>
+          <div className="flex items-center gap-1.5 mb-4">
+            <p className="text-sm font-semibold">Your streak</p>
+            <StreakInfoDrawer />
+          </div>
           <div className="flex items-center gap-4">
             <div className="flex flex-col items-center min-w-[52px]">
               <Icon name="local_fire_department" size={34} className="text-orange-500" />

@@ -11,6 +11,7 @@ import { ThemeSwitcher } from '@/components/theme-switcher'
 import { Icon } from '@/components/icon'
 
 import { STREAK_THRESHOLD } from '@/lib/constants'
+import { StreakInfoDrawer } from '@/components/streak-info-drawer'
 const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
 export default function ProfilePage() {
@@ -124,7 +125,10 @@ export default function ProfilePage() {
           <h2 className="text-xl font-bold mb-4">{monthLabel}</h2>
           <div className="flex gap-5 mb-5">
             <div>
-              <p className="text-xs text-muted-foreground">Your Streak</p>
+              <div className="flex items-center gap-1">
+                <p className="text-xs text-muted-foreground">Your Streak</p>
+                <StreakInfoDrawer />
+              </div>
               <p className="text-lg font-bold">{streak} {streak === 1 ? 'day' : 'days'}</p>
             </div>
             <div>
