@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Icon } from '@/components/icon'
+import { LeaderboardShareButton } from '@/components/leaderboard-share-button'
 
 export const metadata = { title: 'Leaderboard — FitMe' }
 
@@ -55,9 +56,12 @@ export default async function LeaderboardPage({ searchParams }) {
 
   return (
     <>
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-1">Leaderboard</h1>
-        <p className="text-muted-foreground text-sm">Top walkers among opted-in users</p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold mb-1">Leaderboard</h1>
+          <p className="text-muted-foreground text-sm">Top walkers among opted-in users</p>
+        </div>
+        <LeaderboardShareButton period={tab} />
       </div>
 
 
