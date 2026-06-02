@@ -2,7 +2,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Icon } from '@/components/icon'
 import Link from 'next/link'
 
-export const metadata = { title: 'Help — FitMe' }
+export const metadata = { title: 'Help — KyaReFitting aa' }
 
 function Section({ icon, title, children }) {
   return (
@@ -46,19 +46,19 @@ export default function HelpPage() {
     <>
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-1">Help</h1>
-        <p className="text-muted-foreground text-sm">Everything you need to know about FitMe</p>
+        <p className="text-muted-foreground text-sm">Everything you need to know about KyaReFitting aa</p>
       </div>
 
       <div className="max-w-[680px]">
 
         <Section icon="rocket_launch" title="Getting started">
           <p>
-            FitMe connects to your Google Fit account to automatically sync your daily activity.
+            KyaReFitting aa connects to your Google Fit account to automatically sync your daily activity.
             Here&apos;s how to get set up:
           </p>
           <ol className="list-decimal pl-5 space-y-1.5">
             <li>Sign in with your Google account on the sign-in page.</li>
-            <li>Grant FitMe access to your Google Fit data when prompted — you&apos;ll see a list of permissions requested.</li>
+            <li>Grant KyaReFitting aa access to your Google Fit data when prompted — you&apos;ll see a list of permissions requested.</li>
             <li>You&apos;ll be taken to your Dashboard where your steps, calories, and other metrics will load automatically.</li>
             <li>Data syncs each time you visit the Dashboard, so your stats are always up to date.</li>
           </ol>
@@ -178,7 +178,7 @@ Yesterday → 0 steps ✗ → stop
         </Section>
 
         <Section icon="leaderboard" title="Leaderboard">
-          <p>The Leaderboard ranks all FitMe users by total step count. Use the tabs to switch between time periods:</p>
+          <p>The Leaderboard ranks all KyaReFitting aa users by total step count. Use the tabs to switch between time periods:</p>
           <ul className="space-y-2">
             <li><span className="font-medium">Today</span> — steps recorded since midnight today.</li>
             <li><span className="font-medium">Last 7 days</span> — total steps over the past 7 days.</li>
@@ -225,14 +225,14 @@ Yesterday → 0 steps ✗ → stop
               The arrow shows — when there is no data from the previous period to compare against. This is common on the first day of a new month or when you have no data from the previous period.
             </Q>
             <Q q="How do I update my weight or height?">
-              Update these values in your Google Fit or Google Health app on your phone. FitMe reads them automatically on the next Dashboard sync.
+              Update these values in your Google Fit or Google Health app on your phone. KyaReFitting aa reads them automatically on the next Dashboard sync.
             </Q>
-            <Q q="How do I revoke FitMe's access to my Google account?">
+            <Q q="How do I revoke KyaReFitting aa's access to my Google account?">
               Go to{' '}
               <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" className="font-medium underline hover:text-foreground transition-colors">
                 myaccount.google.com/permissions
               </a>
-              {' '}and remove FitMe from the connected apps list.
+              {' '}and remove KyaReFitting aa from the connected apps list.
             </Q>
           </div>
         </Section>

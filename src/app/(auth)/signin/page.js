@@ -17,7 +17,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Icon } from '@/components/icon'
 
-export const metadata = { title: 'Sign in — FitMe' }
+export const metadata = { title: 'Sign in — KyaReFitting aa' }
 
 export default async function SignInPage({ searchParams }) {
   const { error } = await searchParams
@@ -27,7 +27,7 @@ export default async function SignInPage({ searchParams }) {
       <div className="flex justify-center mb-4">
         <Icon name="fitness_center" size={48} className="text-primary" />
       </div>
-      <h1 className="text-2xl font-bold text-center mb-1">Welcome to FitMe</h1>
+      <h1 className="text-2xl font-bold text-center mb-1">Welcome to KyaReFitting aa</h1>
       <p className="text-muted-foreground text-sm text-center mb-8">
         Sign in or create an account to get started
       </p>

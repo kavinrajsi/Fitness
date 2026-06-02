@@ -12,7 +12,7 @@ import { Icon } from '@/components/icon'
 import { StreakInfoDrawer } from '@/components/streak-info-drawer'
 import { STEP_GOAL, STREAK_THRESHOLD } from '@/lib/constants'
 
-export const metadata = { title: 'Dashboard — FitMe' }
+export const metadata = { title: 'Dashboard — KyaReFitting aa' }
 
 export default async function DashboardPage() {
   const supabase = await createClient()

@@ -23,7 +23,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { StepsBarChart } from '@/components/steps-bar-chart'
 import { Icon } from '@/components/icon'
 
-export const metadata = { title: 'My Data — FitMe' }
+export const metadata = { title: 'My Data — KyaReFitting aa' }
 
 const STAT = ({ icon, label, value, sub }) => (
   <Card>

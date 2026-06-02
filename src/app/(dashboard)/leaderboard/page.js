@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Icon } from '@/components/icon'
 import { LeaderboardShareButton } from '@/components/leaderboard-share-button'
 
-export const metadata = { title: 'Leaderboard — FitMe' }
+export const metadata = { title: 'Leaderboard — KyaReFitting aa' }
 
 const TABS = [
   { key: 'today',     label: 'Today' },

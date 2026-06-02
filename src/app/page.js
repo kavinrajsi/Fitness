@@ -3,7 +3,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { Icon } from '@/components/icon'
 
 export const metadata = {
-  title: 'FitMe — Your Personal Fitness Companion',
+  title: 'KyaReFitting aa — Your Personal Fitness Companion',
   description: 'Track your steps, calories, workouts, and sleep. Sync with Google Fit and compete on the leaderboard.',
 }
 
@@ -13,7 +13,7 @@ export default function HomePage() {
       <header className="border-b border-border px-6 py-4 flex items-center justify-between max-w-5xl mx-auto w-full">
         <div className="flex items-center gap-2 font-semibold text-lg">
           <Icon name="fitness_center" size={24} className="text-primary" />
-          FitMe
+          KyaReFitting aa
         </div>
         <a
           href="/auth/google"

@@ -68,7 +68,7 @@ export async function GET(request) {
               display: 'flex',
             }}
           >
-            FitMe
+            KyaReFitting aa
           </div>
           <div
             style={{

@@ -1,19 +1,19 @@
 import Link from 'next/link'
 
-export const metadata = { title: 'Privacy Policy — FitMe' }
+export const metadata = { title: 'Privacy Policy — KyaReFitting aa' }
 
 export default function PrivacyPage() {
   return (
     <main className="min-h-screen bg-background py-12 px-4">
       <div className="max-w-[720px] mx-auto">
         <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8">
-          ← Back to FitMe
+          ← Back to KyaReFitting aa
         </Link>
         <h1 className="text-4xl font-bold mb-1">Privacy Policy</h1>
         <p className="text-muted-foreground text-sm mb-10">Effective date: 31 May 2026</p>
 
         <p className="text-foreground/80 leading-relaxed text-[0.95rem] mb-8">
-          FitMe takes your privacy seriously, especially because we handle
+          KyaReFitting aa takes your privacy seriously, especially because we handle
           personal health data. This policy explains what we collect, how we use
           it, and your rights.
         </p>
@@ -56,7 +56,7 @@ export default function PrivacyPage() {
 
         <Section title="3. Google API data policy">
           <p>
-            FitMe&apos;s use of data received from Google APIs adheres to the{' '}
+            KyaReFitting aa&apos;s use of data received from Google APIs adheres to the{' '}
             <a
               href="https://developers.google.com/terms/api-services-user-data-policy"
               target="_blank"
@@ -96,7 +96,7 @@ export default function PrivacyPage() {
             your profile and tokens within 30 days.
           </p>
           <p className="mt-2">
-            You can also revoke FitMe&apos;s access to your Google account at any
+            You can also revoke KyaReFitting aa&apos;s access to your Google account at any
             time via{' '}
             <a
               href="https://myaccount.google.com/permissions"
@@ -112,14 +112,14 @@ export default function PrivacyPage() {
 
         <Section title="6. Cookies and sessions">
           <p>
-            FitMe uses cookies solely to maintain your login session. We do not
+            KyaReFitting aa uses cookies solely to maintain your login session. We do not
             use tracking or advertising cookies.
           </p>
         </Section>
 
         <Section title="7. Children&apos;s privacy">
           <p>
-            FitMe is not directed at children under 13. We do not knowingly
+            KyaReFitting aa is not directed at children under 13. We do not knowingly
             collect data from children under 13.
           </p>
         </Section>
@@ -127,7 +127,7 @@ export default function PrivacyPage() {
         <Section title="8. Changes to this policy">
           <p>
             We may update this policy. If we make material changes we will
-            update the effective date above. Continued use of FitMe after
+            update the effective date above. Continued use of KyaReFitting aa after
             changes are posted constitutes acceptance.
           </p>
         </Section>

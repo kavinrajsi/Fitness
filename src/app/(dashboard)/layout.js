@@ -23,7 +23,7 @@ export default function DashboardLayout({ children }) {
     <div className="min-h-screen flex flex-col">
       <nav className="sticky top-0 z-10 flex items-center justify-between px-4 md:px-6 h-14 border-b border-border bg-background">
         <Link href="/dashboard" className="text-xl font-bold tracking-tight">
-          FitMe
+          KyaReFitting aa
         </Link>
 
         <div className="flex items-center gap-4 md:gap-6">

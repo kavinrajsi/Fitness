@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "FitMe",
+  title: "KyaReFitting aa",
   description: "Your personal fitness companion",
   manifest: '/site.webmanifest',
   icons: {
@@ -27,7 +27,7 @@ export const metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'FitMe',
+    title: 'KyaReFitting aa',
   },
   other: {
     'msapplication-TileColor': '#ffffff',

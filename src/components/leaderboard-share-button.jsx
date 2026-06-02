@@ -19,7 +19,7 @@ export function LeaderboardShareButton({ period }) {
     try {
       const blob = await fetchBlob()
       const file = new File([blob], 'fitme-leaderboard.png', { type: 'image/png' })
-      await navigator.share({ title: 'FitMe Leaderboard', files: [file] })
+      await navigator.share({ title: 'KyaReFitting aa Leaderboard', files: [file] })
     } catch {
       // user cancelled or API not supported — fall through
     } finally {
