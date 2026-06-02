@@ -11,8 +11,8 @@ export const metadata = { title: 'Leaderboard — FitMe' }
 const TABS = [
   { key: 'today',     label: 'Today' },
   { key: 'yesterday', label: 'Yesterday' },
-  { key: 'week',      label: 'Last 7 days' },
-  { key: 'month',     label: 'This month' },
+  { key: 'week',      label: '7 Days' },
+  { key: 'month',     label: 'Month' },
 ]
 
 const MEDAL_COLORS = ['text-yellow-500', 'text-slate-400', 'text-amber-600']
@@ -65,15 +65,15 @@ export default async function LeaderboardPage({ searchParams }) {
       </div>
 
 
-      <div className="flex gap-2 mb-3 max-w-[600px]">
+      <div className="flex bg-muted rounded-full p-1 mb-3 max-w-[600px] overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {TABS.map((t) => (
           <Link
             key={t.key}
             href={`/leaderboard?tab=${t.key}`}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+            className={`flex-1 whitespace-nowrap text-center px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
               tab === t.key
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-background text-muted-foreground border-border hover:text-foreground hover:bg-muted'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {t.label}
