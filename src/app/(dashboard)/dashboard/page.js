@@ -21,7 +21,7 @@ export default async function DashboardPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name, google_access_token, google_token_expires_at, weight_kg, height_cm')
+    .select('full_name, google_access_token, google_refresh_token, google_token_expires_at, weight_kg, height_cm')
     .eq('id', user.id)
     .single()
 
