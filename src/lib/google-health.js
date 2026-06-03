@@ -47,7 +47,7 @@ async function dailyRollUp(token, dataType, startDate, endDate) {
       range: { startTime: startDate, endTime: endDate },
       windowSizeDays: 1,
     }),
-    next: { revalidate: 300 },
+    cache: 'no-store',
   })
   if (!res.ok) return null
   return res.json()
@@ -58,7 +58,7 @@ async function listPoints(token, dataType, filter) {
   if (filter) params.set('filter', filter)
   const res = await fetch(`${HEALTH_API}/${dataType}/dataPoints?${params}`, {
     headers: { Authorization: `Bearer ${token}` },
-    next: { revalidate: 300 },
+    cache: 'no-store',
   })
   if (!res.ok) return null
   return res.json()

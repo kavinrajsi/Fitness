@@ -11,8 +11,8 @@
  *   (weight, height). Timestamps are nanoseconds; BigInt is required to avoid precision
  *   loss because a 1-year range in nanoseconds exceeds Number.MAX_SAFE_INTEGER.
  *
- * `next: { revalidate: 300 }` on fetch calls enables Next.js Data Cache for 5 minutes,
- * reducing redundant API calls when the page is visited multiple times in quick succession.
+ * `cache: 'no-store'` on all fetches ensures every call returns live data from Google
+ * so the Sync button and dashboard always reflect the latest step counts.
  *
  * Activity session steps: each session triggers a separate aggregate call to get steps
  * for that session's time window. These run in parallel via Promise.all inside
@@ -52,7 +52,7 @@ async function aggregate(token, dataTypeName, range) {
       startTimeMillis: range.startTimeMillis,
       endTimeMillis: range.endTimeMillis,
     }),
-    next: { revalidate: 300 },
+    cache: 'no-store',
   })
   if (!res.ok) return null
   return res.json()
@@ -76,7 +76,7 @@ async function getLatestDataPoint(token, dataSourceId, lookbackDays = 365) {
 
   const res = await fetch(
     `${FITNESS_API}/dataSources/${dataSourceId}/datasets/${startNs}-${endNs}?limit=1`,
-    { headers: { Authorization: `Bearer ${token}` }, next: { revalidate: 300 } }
+    { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }
   )
   if (!res.ok) return null
   const data = await res.json()
@@ -116,12 +116,14 @@ export async function getDailySteps(googleAccessToken) {
         { dataTypeName: 'com.google.active_minutes' },
         { dataTypeName: 'com.google.distance.delta' },
       ],
-      // period-based bucketing aligns each bucket to IST midnight instead of UTC midnight
-      bucketByTime: { period: { type: 'day', value: 1, timeZoneId: 'Asia/Kolkata' } },
+      // 24h buckets starting at IST midnight — IST has no DST so this is equivalent
+      // to calendar-day bucketing. durationMillis is more reliable than period.timeZoneId
+      // on the Google Fit REST API.
+      bucketByTime: { durationMillis: 86400000 },
       startTimeMillis: istMidnight(-6),
       endTimeMillis: Date.now(),
     }),
-    next: { revalidate: 300 },
+    cache: 'no-store',
   })
   if (!res.ok) return []
 
@@ -197,7 +199,7 @@ export async function getActivitySessions(googleAccessToken, days = 7) {
 
   const res = await fetch(
     `${FITNESS_API}/sessions?startTime=${startTime.toISOString()}&endTime=${endTime.toISOString()}&includeDeleted=false`,
-    { headers: { Authorization: `Bearer ${googleAccessToken}` }, next: { revalidate: 300 } }
+    { headers: { Authorization: `Bearer ${googleAccessToken}` }, cache: 'no-store' }
   )
   if (!res.ok) return []
 
@@ -248,7 +250,7 @@ export async function getSleepData(googleAccessToken) {
       startTimeMillis: yesterday.startTimeMillis,
       endTimeMillis: yesterday.endTimeMillis,
     }),
-    next: { revalidate: 300 },
+    cache: 'no-store',
   })
   if (!res.ok) return null
 
@@ -280,7 +282,7 @@ export async function getSleepWeek(googleAccessToken) {
       startTimeMillis: istMidnight(-7),
       endTimeMillis: Date.now(),
     }),
-    next: { revalidate: 300 },
+    cache: 'no-store',
   })
   if (!res.ok) return {}
 
