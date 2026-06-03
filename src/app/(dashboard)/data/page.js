@@ -1,40 +1,11 @@
-/**
- * Data page — comprehensive view of all Google Fit data. Server component.
- *
- * Sections rendered (each conditional on data availability):
- * - Activity Today: steps, calories, active minutes, distance, heart rate, active days
- * - Body: weight, height, BMI (computed), sleep last night
- * - Activities (last 7 days): workout sessions with name, duration, steps per session
- * - Steps bar chart (last 7 days, from live Google Fit data)
- * - History table (last 30 days from the health_daily DB table)
- *
- * All five Google Fit calls run in parallel via Promise.all.
- * Activity sessions each trigger an additional aggregate call to get per-session steps,
- * also parallelised inside getActivitySessions().
- *
- * Body metric fallback: if the live fetch returns null (no data in Google Fit),
- * the last values stored in profiles.weight_kg / height_cm are shown instead.
- */
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { getHealthSummary, getDailySteps } from '@/lib/google-data'
+import { getDailySteps } from '@/lib/google-data'
 import { refreshGoogleToken } from '@/lib/google-auth'
 import { Card, CardContent } from '@/components/ui/card'
 import { StepsBarChart } from '@/components/steps-bar-chart'
-import { HistoryTable } from '@/components/history-table'
-import { Icon } from '@/components/icon'
 
 export const metadata = { title: 'My Data — KyaReFitting aa' }
-
-const STAT = ({ icon, label, value }) => (
-  <Card>
-    <CardContent className="pt-5 pb-5">
-      <Icon name={icon} size={26} className="text-muted-foreground mb-2" />
-      <p className="text-2xl font-bold">{value}</p>
-      <p className="text-xs text-muted-foreground uppercase tracking-wide mt-1">{label}</p>
-    </CardContent>
-  </Card>
-)
 
 export default async function DataPage() {
   const supabase = await createClient()
@@ -43,7 +14,7 @@ export default async function DataPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('google_access_token, google_token_expires_at, weight_kg, height_cm')
+    .select('google_access_token, google_refresh_token, google_token_expires_at')
     .eq('id', user.id)
     .single()
 
@@ -52,7 +23,7 @@ export default async function DataPage() {
     profile?.google_token_expires_at &&
     new Date(profile.google_token_expires_at) > new Date()
 
-  let health = null, dailySteps = []
+  let dailySteps = []
   let sessionExpired = profile?.google_access_token && !tokenValid
 
   let accessToken = profile?.google_access_token
@@ -73,41 +44,8 @@ export default async function DataPage() {
 
   if (accessToken && (tokenValid || !sessionExpired)) {
     try {
-      ;[health, dailySteps] = await Promise.all([
-        getHealthSummary(accessToken),
-        getDailySteps(accessToken),
-      ])
+      dailySteps = await getDailySteps(accessToken)
     } catch { /* token may be revoked */ }
-  }
-
-  // Full history + sessions from DB
-  const thirtyDaysAgo = new Date(Date.now() - 29 * 86400000).toISOString()
-  const [{ data: history }, { data: sessionRows }] = await Promise.all([
-    supabase
-      .from('health_daily')
-      .select('date, steps, calories, active_minutes, distance_km, sleep_minutes')
-      .eq('user_id', user.id)
-      .order('date', { ascending: false })
-      .limit(30),
-    supabase
-      .from('activity_sessions')
-      .select('name, icon, duration_min, steps, start_time')
-      .eq('user_id', user.id)
-      .gte('start_time', thirtyDaysAgo)
-      .order('start_time', { ascending: false }),
-  ])
-
-  // Group sessions by IST date for the drawer
-  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000
-  const sessionsByDate = {}
-  for (const s of sessionRows ?? []) {
-    const istDate = new Date(new Date(s.start_time).getTime() + IST_OFFSET_MS).toISOString().slice(0, 10)
-    ;(sessionsByDate[istDate] ??= []).push({
-      name: s.name,
-      icon: s.icon,
-      durationMin: s.duration_min,
-      steps: s.steps,
-    })
   }
 
   const chartData = dailySteps.map((d) => ({
@@ -119,7 +57,7 @@ export default async function DataPage() {
     <>
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-1">My Data</h1>
-        <p className="text-muted-foreground text-sm">All your health data from Google Fit</p>
+        <p className="text-muted-foreground text-sm">Your step activity for the last 7 days</p>
       </div>
 
       {!profile?.google_access_token && (
@@ -136,38 +74,12 @@ export default async function DataPage() {
         </div>
       )}
 
-      {/* Activity — Today */}
-      {health && (
-        <section className="mb-10">
-          <h2 className="text-base font-semibold text-muted-foreground uppercase tracking-wide mb-3">Activity — Today</h2>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
-            <STAT icon="directions_walk" label="Steps" value={health.stepsToday.toLocaleString()} />
-            <STAT icon="local_fire_department" label="Calories" value={`${health.caloriesToday.toLocaleString()} kcal`} />
-            <STAT icon="timer" label="Active minutes" value={`${health.activeMinutesToday} min`} />
-            <STAT icon="route" label="Distance" value={`${health.distanceKm} km`} />
-          </div>
-        </section>
-      )}
-
-      {/* Steps chart */}
       {chartData.length > 0 && (
         <section className="mb-10">
           <h2 className="text-base font-semibold text-muted-foreground uppercase tracking-wide mb-3">Steps — Last 7 days</h2>
           <Card>
             <CardContent className="pt-6">
               <StepsBarChart data={chartData} />
-            </CardContent>
-          </Card>
-        </section>
-      )}
-
-      {/* History table */}
-      {history && history.length > 0 && (
-        <section className="mb-10">
-          <h2 className="text-base font-semibold text-muted-foreground uppercase tracking-wide mb-3">History</h2>
-          <Card>
-            <CardContent className="p-0">
-              <HistoryTable history={history} sessionsByDate={sessionsByDate} />
             </CardContent>
           </Card>
         </section>
