@@ -104,7 +104,8 @@ export default async function LeaderboardPage({ searchParams }) {
             const medalColor = MEDAL_COLORS[row.rank - 1]
 
             return (
-              <Card key={row.user_id} className={isMe ? 'border-primary bg-primary/5' : ''}>
+              <Link key={row.user_id} href={`/leaderboard/${row.user_id}`}>
+              <Card className={`transition-colors hover:bg-muted/40 ${isMe ? 'border-primary bg-primary/5' : ''}`}>
                 <CardContent className="py-3 px-4 flex items-center gap-4">
                   <div className="w-10 flex flex-col items-center flex-shrink-0">
                     {medalColor ? (
@@ -130,6 +131,7 @@ export default async function LeaderboardPage({ searchParams }) {
                   </span>
                 </CardContent>
               </Card>
+              </Link>
             )
           })}
         </div>
