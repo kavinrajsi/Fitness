@@ -72,6 +72,7 @@ export function SyncButton() {
           }
           if (data.complete) {
             completed = true
+            console.log('[Sync] all fetched data:', data.data)
             setPhase('success')
             router.refresh()
             break outer

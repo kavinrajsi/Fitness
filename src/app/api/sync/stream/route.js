@@ -177,7 +177,10 @@ export async function GET() {
         })
 
         emit({ step: 'saving', done: true })
-        emit({ complete: true })
+        emit({
+          complete: true,
+          data: { health, dailySteps, body, sleepWeek, activities, heartRateWeek },
+        })
 
       } catch (err) {
         emit({ error: err?.message ?? 'Sync failed — please try again' })
