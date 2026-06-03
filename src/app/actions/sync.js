@@ -17,7 +17,13 @@ export async function syncGoogleData() {
     .eq('id', user.id)
     .single()
 
-  if (!profile?.google_access_token) return { error: 'No Google account connected' }
+  if (!profile?.google_access_token) {
+    await supabase.from('sync_logs').insert({
+      user_id: user.id, triggered_by: 'manual', status: 'error',
+      error: 'No Google account connected',
+    })
+    return { error: 'No Google account connected' }
+  }
 
   const tokenValid =
     profile.google_token_expires_at &&
@@ -26,9 +32,21 @@ export async function syncGoogleData() {
   let accessToken = profile.google_access_token
 
   if (!tokenValid) {
-    if (!profile.google_refresh_token) return { error: 'Session expired — please reconnect Google' }
+    if (!profile.google_refresh_token) {
+      await supabase.from('sync_logs').insert({
+        user_id: user.id, triggered_by: 'manual', status: 'error',
+        error: 'No refresh token — user must reconnect Google',
+      })
+      return { error: 'Session expired — please reconnect Google' }
+    }
     const refreshed = await refreshGoogleToken(profile.google_refresh_token)
-    if (!refreshed) return { error: 'Failed to refresh token — please reconnect Google' }
+    if (!refreshed) {
+      await supabase.from('sync_logs').insert({
+        user_id: user.id, triggered_by: 'manual', status: 'error',
+        error: 'Token refresh failed — refresh token may be revoked',
+      })
+      return { error: 'Failed to refresh token — please reconnect Google' }
+    }
     accessToken = refreshed.access_token
     const expiresAt = new Date(Date.now() + (refreshed.expires_in ?? 3600) * 1000).toISOString()
     await supabase.from('profiles').update({
@@ -99,12 +117,24 @@ export async function syncGoogleData() {
       await supabase.from('profiles').update(bodyUpdate).eq('id', user.id)
     }
 
+    await supabase.from('sync_logs').insert({
+      user_id: user.id,
+      triggered_by: 'manual',
+      status: 'success',
+      steps_today: health.stepsToday,
+      days_written: historicalRows.length + 1,
+    })
+
     revalidatePath('/dashboard')
     revalidatePath('/data')
     revalidatePath('/leaderboard')
 
     return { success: true }
-  } catch {
+  } catch (err) {
+    await supabase.from('sync_logs').insert({
+      user_id: user.id, triggered_by: 'manual', status: 'error',
+      error: err?.message ?? 'Unknown error during sync',
+    })
     return { error: 'Sync failed — please try again' }
   }
 }

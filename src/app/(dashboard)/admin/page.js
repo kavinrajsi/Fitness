@@ -26,12 +26,14 @@ export default async function AdminPage() {
     { data: todayRows },
     { data: weekRows },
     { data: sessions },
+    { data: syncLogs },
   ] = await Promise.all([
     service.auth.admin.listUsers({ perPage: 1000 }),
     service.from('profiles').select('id, full_name, avatar_url, weight_kg, height_cm, google_refresh_token, google_token_expires_at'),
     service.from('health_daily').select('user_id, steps, calories, active_minutes, distance_km').eq('date', today),
     service.from('health_daily').select('user_id, steps').gte('date', sevenDaysAgo),
     service.from('activity_sessions').select('user_id, name, duration_min, start_time').gte('start_time', new Date(Date.now() - 7 * 86400000).toISOString()).order('start_time', { ascending: false }),
+    service.from('sync_logs').select('id, user_id, triggered_by, status, error, steps_today, days_written, created_at').order('created_at', { ascending: false }).limit(100),
   ])
 
   const profileMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p]))
@@ -145,6 +147,68 @@ export default async function AdminPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Sync logs */}
+      <section className="mb-10">
+        <h2 className="text-base font-semibold text-muted-foreground uppercase tracking-wide mb-3">Sync Logs — Last 100</h2>
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">User</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Trigger</th>
+                    <th className="text-center px-4 py-3 font-medium text-muted-foreground">Status</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Steps today</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Days written</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Error</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(syncLogs ?? []).map((log, i) => {
+                    const profile = profileMap[log.user_id]
+                    const userName = profile?.full_name || log.user_id?.slice(0, 8) || '—'
+                    const time = new Date(log.created_at).toLocaleString('en-IN', {
+                      timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric',
+                      hour: '2-digit', minute: '2-digit',
+                    })
+                    return (
+                      <tr key={log.id} className={`border-b border-border last:border-0 ${i % 2 === 0 ? '' : 'bg-muted/30'}`}>
+                        <td className="px-4 py-2.5 font-medium">{userName}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground">{log.triggered_by}</td>
+                        <td className="px-4 py-2.5 text-center">
+                          {log.status === 'success'
+                            ? <Icon name="check_circle" size={16} className="text-green-500" />
+                            : log.status === 'skipped'
+                            ? <Icon name="schedule" size={16} className="text-yellow-500" />
+                            : <Icon name="error" size={16} className="text-destructive" />}
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground hidden sm:table-cell">
+                          {log.steps_today != null ? log.steps_today.toLocaleString() : '—'}
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground hidden sm:table-cell">
+                          {log.days_written != null ? log.days_written : '—'}
+                        </td>
+                        <td className="px-4 py-2.5 text-muted-foreground text-xs hidden md:table-cell max-w-[240px] truncate">
+                          {log.error ?? '—'}
+                        </td>
+                        <td className="px-4 py-2.5 text-right text-muted-foreground text-xs whitespace-nowrap">{time}</td>
+                      </tr>
+                    )
+                  })}
+                  {(syncLogs ?? []).length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">No sync logs yet</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
 
       {/* Recent activity sessions */}
       {sessions && sessions.length > 0 && (
