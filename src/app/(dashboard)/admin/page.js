@@ -111,7 +111,7 @@ export default async function AdminPage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2.5">
                           <Avatar className="h-7 w-7 flex-shrink-0">
-                            {u.avatar_url && <img src={u.avatar_url} alt={u.name} />}
+                            <AvatarImage src={u.avatar_url} alt={u.name} />
                             <AvatarFallback className="text-xs font-bold">{initials}</AvatarFallback>
                           </Avatar>
                           <span className="font-medium">{u.name}</span>
