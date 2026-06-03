@@ -87,38 +87,29 @@ export async function getHealthSummary(token) {
 }
 
 export async function getDailySteps(token) {
-  const start    = isoDate(-6)
-  const tomorrow = isoDate(1)
-
-  const [stepsData, calsData, distData] = await Promise.all([
-    dailyRollUp(token, 'steps', start, tomorrow),
-    dailyRollUp(token, 'active-energy-burned', start, tomorrow),
-    dailyRollUp(token, 'distance', start, tomorrow),
-  ])
-
-  const calsByDate = {}
-  for (const pt of calsData?.rollupDataPoints ?? []) {
-    const d = dateFromPoint(pt)
-    if (d) calsByDate[d] = Math.round(pt.value?.activeEnergyBurnedRollupValue?.activeEnergyBurnedKcal ?? 0)
-  }
-
-  const distByDate = {}
-  for (const pt of distData?.rollupDataPoints ?? []) {
-    const d = dateFromPoint(pt)
-    if (d) distByDate[d] = Math.round((pt.value?.distanceRollupValue?.distanceMeters ?? 0) / 10) / 100
-  }
-
-  return (stepsData?.rollupDataPoints ?? []).map((pt) => {
-    const d = dateFromPoint(pt)
-    return {
-      date:         d ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '',
-      isoDate:      d,
-      steps:        Number(pt.value?.stepsRollupValue?.steps ?? 0),
-      calories:     calsByDate[d] ?? 0,
-      activeMinutes: 0,
-      distanceKm:   distByDate[d] ?? 0,
-    }
-  })
+  // dailyRollUp only returns data for single-day ranges; make 7 parallel calls.
+  return Promise.all(
+    [-6, -5, -4, -3, -2, -1, 0].map(async (offset) => {
+      const start = isoDate(offset)
+      const end   = isoDate(offset + 1)
+      const [stepsData, calsData, distData] = await Promise.all([
+        dailyRollUp(token, 'steps', start, end),
+        dailyRollUp(token, 'active-energy-burned', start, end),
+        dailyRollUp(token, 'distance', start, end),
+      ])
+      const stepsVal = stepsData?.rollupDataPoints?.[0]?.value?.stepsRollupValue
+      const calsVal  = calsData?.rollupDataPoints?.[0]?.value?.activeEnergyBurnedRollupValue
+      const distVal  = distData?.rollupDataPoints?.[0]?.value?.distanceRollupValue
+      return {
+        date:          new Date(start + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+        isoDate:       start,
+        steps:         Number(stepsVal?.steps ?? 0),
+        calories:      Math.round(calsVal?.activeEnergyBurnedKcal ?? 0),
+        activeMinutes: 0,
+        distanceKm:    distVal ? Math.round((distVal.distanceMeters ?? 0) / 10) / 100 : 0,
+      }
+    })
+  )
 }
 
 export async function getBodyMetrics(token) {
@@ -230,14 +221,19 @@ export async function getSleepData(token) {
 
 // Returns avg heart rate (bpm) keyed by IST date string for the past 7 days.
 export async function getHeartRateWeek(token) {
-  const start    = isoDate(-6)
-  const tomorrow = isoDate(1)
-  const data = await dailyRollUp(token, 'heart-rate', start, tomorrow)
+  // dailyRollUp only returns data for single-day ranges; make 7 parallel calls.
+  const days = await Promise.all(
+    [-6, -5, -4, -3, -2, -1, 0].map(async (offset) => {
+      const start = isoDate(offset)
+      const end   = isoDate(offset + 1)
+      const data  = await dailyRollUp(token, 'heart-rate', start, end)
+      const bpm   = data?.rollupDataPoints?.[0]?.value?.heartRateRollupValue?.averageBeatsPerMinute
+      return { date: start, bpm: bpm ? Math.round(bpm) : null }
+    })
+  )
   const result = {}
-  for (const pt of data?.rollupDataPoints ?? []) {
-    const d = dateFromPoint(pt)
-    const bpm = pt.value?.heartRateRollupValue?.averageBeatsPerMinute
-    if (d && bpm) result[d] = Math.round(bpm)
+  for (const { date, bpm } of days) {
+    if (bpm) result[date] = bpm
   }
   return result
 }

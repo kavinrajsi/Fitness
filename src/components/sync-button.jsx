@@ -79,6 +79,9 @@ export function SyncButton() {
           }
           if (data.step) {
             setStepStatus(prev => ({ ...prev, [data.step]: data.done ? 'done' : 'active' }))
+            if (data.done && data.debug !== undefined) {
+              console.log(`[Sync] ${data.step}:`, data.debug)
+            }
           }
         }
       }

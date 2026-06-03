@@ -89,27 +89,27 @@ export async function GET() {
 
         emit({ step: 'health', done: false })
         const health = await getHealthSummary(accessToken)
-        emit({ step: 'health', done: true })
+        emit({ step: 'health', done: true, debug: health })
 
         emit({ step: 'steps', done: false })
         const dailySteps = await getDailySteps(accessToken)
-        emit({ step: 'steps', done: true })
+        emit({ step: 'steps', done: true, debug: dailySteps.map(d => ({ date: d.isoDate, steps: d.steps, calories: d.calories })) })
 
         emit({ step: 'body', done: false })
         const body = await getBodyMetrics(accessToken)
-        emit({ step: 'body', done: true })
+        emit({ step: 'body', done: true, debug: body })
 
         emit({ step: 'sleep', done: false })
         const sleepWeek = await getSleepWeek(accessToken)
-        emit({ step: 'sleep', done: true })
+        emit({ step: 'sleep', done: true, debug: sleepWeek })
 
         emit({ step: 'activities', done: false })
         const activities = await getActivitySessions(accessToken, 7)
-        emit({ step: 'activities', done: true })
+        emit({ step: 'activities', done: true, debug: activities.map(a => ({ date: a.date, name: a.name, steps: a.steps })) })
 
         emit({ step: 'heartrate', done: false })
         const heartRateWeek = await getHeartRateWeek(accessToken)
-        emit({ step: 'heartrate', done: true })
+        emit({ step: 'heartrate', done: true, debug: heartRateWeek })
 
         emit({ step: 'saving', done: false })
 
