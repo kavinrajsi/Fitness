@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Icon } from '@/components/icon'
 import { StepsBarChart } from '@/components/steps-bar-chart'
+import { HistoryTable } from '@/components/history-table'
 
 export default async function UserProfilePage({ params }) {
   const { userId } = await params
@@ -15,22 +16,30 @@ export default async function UserProfilePage({ params }) {
   if (!user) redirect('/signin')
 
   const thirtyDaysAgo = istIsoDate(-29)
+  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000
 
   const [
     { data: todayRows },
     { data: weekRows },
     { data: monthRows },
     { data: history },
+    { data: sessionRows },
   ] = await Promise.all([
     supabase.rpc('get_leaderboard', { period: 'today' }),
     supabase.rpc('get_leaderboard', { period: 'week' }),
     supabase.rpc('get_leaderboard', { period: 'month' }),
     supabase.from('health_daily')
-      .select('date, steps, calories, active_minutes, distance_km')
+      .select('date, steps, calories, active_minutes, distance_km, sleep_minutes')
       .eq('user_id', userId)
       .gte('date', thirtyDaysAgo)
       .order('date', { ascending: false })
       .limit(30),
+    // Activity sessions — visible for own profile; RLS returns empty for others
+    supabase.from('activity_sessions')
+      .select('name, icon, duration_min, steps, start_time')
+      .eq('user_id', userId)
+      .gte('start_time', new Date(Date.now() - 29 * 86400000).toISOString())
+      .order('start_time', { ascending: false }),
   ])
 
   // User must be opted-in (appear in at least one leaderboard period)
@@ -41,26 +50,38 @@ export default async function UserProfilePage({ params }) {
 
   if (!userInfo) notFound()
 
-  const todayStat  = todayRows?.find(r => r.user_id === userId)
-  const weekStat   = weekRows?.find(r => r.user_id === userId)
-  const monthStat  = monthRows?.find(r => r.user_id === userId)
-
-  const isMe = userId === user.id
+  const todayStat = todayRows?.find(r => r.user_id === userId)
+  const weekStat  = weekRows?.find(r => r.user_id === userId)
+  const monthStat = monthRows?.find(r => r.user_id === userId)
+  const isMe      = userId === user.id
 
   const initials = (userInfo.full_name || '?')
     .split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+
+  // Group sessions by IST date for HistoryTable drawer
+  const sessionsByDate = {}
+  for (const s of sessionRows ?? []) {
+    const istDate = new Date(new Date(s.start_time).getTime() + IST_OFFSET_MS).toISOString().slice(0, 10)
+    ;(sessionsByDate[istDate] ??= []).push({
+      name: s.name,
+      icon: s.icon,
+      durationMin: s.duration_min,
+      steps: s.steps,
+    })
+  }
 
   const chartData = (history ?? [])
     .slice()
     .reverse()
     .map(r => ({
-      date: new Date(r.date + 'T00:00:00').toLocaleDateString('en-US', {
-        month: 'short', day: 'numeric',
-      }),
+      date: new Date(r.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       steps: r.steps ?? 0,
     }))
 
-  const bestDay = (history ?? []).reduce((best, r) => (r.steps ?? 0) > (best?.steps ?? 0) ? r : best, null)
+  const bestDay = (history ?? []).reduce(
+    (best, r) => (r.steps ?? 0) > (best?.steps ?? 0) ? r : best,
+    null
+  )
 
   return (
     <>
@@ -82,9 +103,7 @@ export default async function UserProfilePage({ params }) {
             {isMe && <span className="ml-2 text-sm text-primary font-semibold">you</span>}
           </h1>
           {monthStat && (
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Rank #{monthStat.rank} this month
-            </p>
+            <p className="text-sm text-muted-foreground mt-0.5">Rank #{monthStat.rank} this month</p>
           )}
         </div>
       </div>
@@ -122,7 +141,7 @@ export default async function UserProfilePage({ params }) {
         </div>
       )}
 
-      {/* Chart */}
+      {/* 30-day chart */}
       {chartData.length > 0 && (
         <section className="mb-8">
           <h2 className="text-base font-semibold text-muted-foreground uppercase tracking-wide mb-3">Steps — Last 30 days</h2>
@@ -134,48 +153,13 @@ export default async function UserProfilePage({ params }) {
         </section>
       )}
 
-      {/* History table */}
+      {/* History with clickable day drawer */}
       {history && history.length > 0 && (
         <section className="mb-8">
           <h2 className="text-base font-semibold text-muted-foreground uppercase tracking-wide mb-3">History</h2>
           <Card>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
-                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">Steps</th>
-                      <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Calories</th>
-                      <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Active min</th>
-                      <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Distance</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {history.map((row, i) => (
-                      <tr key={row.date} className={`border-b border-border last:border-0 ${i % 2 === 0 ? '' : 'bg-muted/30'}`}>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {new Date(row.date + 'T00:00:00').toLocaleDateString('en-US', {
-                            weekday: 'short', month: 'short', day: 'numeric',
-                          })}
-                        </td>
-                        <td className="px-4 py-3 text-right font-medium tabular-nums">
-                          {row.steps > 0 ? Number(row.steps).toLocaleString() : '—'}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums text-muted-foreground hidden sm:table-cell">
-                          {row.calories > 0 ? `${Number(row.calories).toLocaleString()} kcal` : '—'}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums text-muted-foreground hidden sm:table-cell">
-                          {row.active_minutes > 0 ? `${row.active_minutes} min` : '—'}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums text-muted-foreground hidden md:table-cell">
-                          {row.distance_km > 0 ? `${row.distance_km} km` : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <HistoryTable history={history} sessionsByDate={sessionsByDate} />
             </CardContent>
           </Card>
         </section>
