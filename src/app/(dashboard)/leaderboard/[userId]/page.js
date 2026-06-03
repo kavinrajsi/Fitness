@@ -28,12 +28,10 @@ export default async function UserProfilePage({ params }) {
     supabase.rpc('get_leaderboard', { period: 'today' }),
     supabase.rpc('get_leaderboard', { period: 'week' }),
     supabase.rpc('get_leaderboard', { period: 'month' }),
-    supabase.from('health_daily')
-      .select('date, steps, calories, active_minutes, distance_km, sleep_minutes')
-      .eq('user_id', userId)
-      .gte('date', thirtyDaysAgo)
-      .order('date', { ascending: false })
-      .limit(30),
+    supabase.rpc('get_user_health_history', {
+      target_user_id: userId,
+      since_date: thirtyDaysAgo,
+    }),
     // Activity sessions — visible for own profile; RLS returns empty for others
     supabase.from('activity_sessions')
       .select('name, icon, duration_min, steps, start_time')
