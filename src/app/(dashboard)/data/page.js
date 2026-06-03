@@ -17,25 +17,14 @@
  */
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { getHealthSummary, getDailySteps, getBodyMetrics, getSleepData, getActivitySessions } from '@/lib/google-data'
+import { getHealthSummary, getDailySteps } from '@/lib/google-data'
 import { refreshGoogleToken } from '@/lib/google-auth'
 import { Card, CardContent } from '@/components/ui/card'
 import { StepsBarChart } from '@/components/steps-bar-chart'
-import { Icon } from '@/components/icon'
 import { HistoryTable } from '@/components/history-table'
 
 export const metadata = { title: 'My Data — KyaReFitting aa' }
 
-const STAT = ({ icon, label, value, sub }) => (
-  <Card>
-    <CardContent className="pt-5 pb-5">
-      <Icon name={icon} size={26} className="text-muted-foreground mb-2" />
-      <p className="text-2xl font-bold">{value}</p>
-      {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
-      <p className="text-xs text-muted-foreground uppercase tracking-wide mt-1">{label}</p>
-    </CardContent>
-  </Card>
-)
 
 export default async function DataPage() {
   const supabase = await createClient()
@@ -53,7 +42,7 @@ export default async function DataPage() {
     profile?.google_token_expires_at &&
     new Date(profile.google_token_expires_at) > new Date()
 
-  let health = null, dailySteps = [], body = { weightKg: null, heightCm: null }, sleep = null, activities = []
+  let health = null, dailySteps = []
   let sessionExpired = profile?.google_access_token && !tokenValid
 
   let accessToken = profile?.google_access_token
@@ -74,21 +63,12 @@ export default async function DataPage() {
 
   if (accessToken && (tokenValid || !sessionExpired)) {
     try {
-      ;[health, dailySteps, body, sleep, activities] = await Promise.all([
+      ;[health, dailySteps] = await Promise.all([
         getHealthSummary(accessToken),
         getDailySteps(accessToken),
-        getBodyMetrics(accessToken),
-        getSleepData(accessToken),
-        getActivitySessions(accessToken, 7),
       ])
     } catch { /* token may be revoked */ }
   }
-
-  const weightKg = body.weightKg ?? profile?.weight_kg
-  const heightCm = body.heightCm ?? profile?.height_cm
-  const bmi = weightKg && heightCm
-    ? Math.round((weightKg / Math.pow(heightCm / 100, 2)) * 10) / 10
-    : null
 
   // Full history + sessions from DB
   const thirtyDaysAgo = new Date(Date.now() - 29 * 86400000).toISOString()
@@ -159,68 +139,6 @@ export default async function DataPage() {
         </section>
       )}
 
-      {/* Body */}
-      {(weightKg || heightCm || sleep) && (
-        <section className="mb-10">
-          <h2 className="text-base font-semibold text-muted-foreground uppercase tracking-wide mb-3">Body</h2>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
-            {weightKg && <STAT icon="monitor_weight" label="Weight" value={`${weightKg} kg`} />}
-            {heightCm && <STAT icon="height" label="Height" value={`${heightCm} cm`} />}
-            {bmi && (
-              <STAT
-                icon="straighten"
-                label="BMI"
-                value={bmi}
-                sub={bmi < 18.5 ? 'Underweight' : bmi < 25 ? 'Normal' : bmi < 30 ? 'Overweight' : 'Obese'}
-              />
-            )}
-            {sleep && <STAT icon="bedtime" label="Sleep last night" value={sleep.display} />}
-          </div>
-        </section>
-      )}
-
-      {/* Activities */}
-      {activities.length > 0 && (
-        <section className="mb-10">
-          <h2 className="text-base font-semibold text-muted-foreground uppercase tracking-wide mb-3">Activities — Last 7 days</h2>
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Activity</th>
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
-                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">Duration</th>
-                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">Steps</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activities.map((a, i) => (
-                      <tr key={a.id} className={`border-b border-border last:border-0 ${i % 2 === 0 ? '' : 'bg-muted/30'}`}>
-                        <td className="px-4 py-3 font-medium">
-                          <Icon name={a.icon} size={18} className="text-muted-foreground mr-2 align-middle" />
-                          {a.name}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">{a.date}</td>
-                        <td className="px-4 py-3 text-right tabular-nums">
-                          {a.durationMin >= 60
-                            ? `${Math.floor(a.durationMin / 60)}h ${a.durationMin % 60}m`
-                            : `${a.durationMin}m`}
-                        </td>
-                        <td className="px-4 py-3 text-right font-medium tabular-nums">
-                          {a.steps > 0 ? a.steps.toLocaleString() : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-      )}
-
       {/* Steps chart */}
       {chartData.length > 0 && (
         <section className="mb-10">
@@ -236,7 +154,7 @@ export default async function DataPage() {
       {/* History table */}
       {history && history.length > 0 && (
         <section className="mb-10">
-          <h2 className="text-base font-semibold text-muted-foreground uppercase tracking-wide mb-3">History — Last 30 days</h2>
+          <h2 className="text-base font-semibold text-muted-foreground uppercase tracking-wide mb-3">History</h2>
           <Card>
             <CardContent className="p-0">
               <HistoryTable history={history} sessionsByDate={sessionsByDate} />

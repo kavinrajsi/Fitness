@@ -33,9 +33,14 @@ export default function ProfilePage() {
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
         const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().slice(0, 10)
 
-        const [{ data: profileData }, { data: activity }] = await Promise.all([
-          supabase.from('profiles').select('full_name, bio, avatar_url').eq('id', user.id).single(),
+        const yesterday = new Date()
+        yesterday.setDate(yesterday.getDate() - 1)
+        const yesterdayStr = yesterday.toISOString().slice(0, 10)
+
+        const [{ data: profileData }, { data: activity }, { data: yesterdayRow }] = await Promise.all([
+          supabase.from('profiles').select('full_name, bio, avatar_url, weight_kg, height_cm').eq('id', user.id).single(),
           supabase.from('health_daily').select('date, steps').eq('user_id', user.id).gte('date', thirtyDaysAgoStr).order('date', { ascending: false }),
+          supabase.from('health_daily').select('sleep_minutes').eq('user_id', user.id).eq('date', yesterdayStr).maybeSingle(),
         ])
 
         const googleName = user.user_metadata?.full_name ?? user.user_metadata?.name ?? ''
@@ -46,7 +51,14 @@ export default function ProfilePage() {
           await supabase.from('profiles').update({ full_name: googleName }).eq('id', user.id)
         }
 
-        setProfile({ full_name: fullName, avatar_url: avatarUrl })
+        const weightKg = profileData?.weight_kg ?? null
+        const heightCm = profileData?.height_cm ?? null
+        const bmi = weightKg && heightCm
+          ? Math.round((weightKg / Math.pow(heightCm / 100, 2)) * 10) / 10
+          : null
+        const sleepMinutes = yesterdayRow?.sleep_minutes ?? null
+
+        setProfile({ full_name: fullName, avatar_url: avatarUrl, weightKg, heightCm, bmi, sleepMinutes })
         setActivityData(activity || [])
       }
       setLoading(false)
@@ -192,6 +204,54 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+
+      {(profile.weightKg || profile.heightCm || profile.sleepMinutes) && (
+        <Card className="max-w-[540px] mb-6">
+          <CardContent className="pt-6">
+            <h2 className="text-base font-semibold mb-4">Body</h2>
+            <div className="grid grid-cols-2 gap-3">
+              {profile.weightKg && (
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
+                  <Icon name="monitor_weight" size={20} className="text-muted-foreground flex-shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Weight</p>
+                    <p className="font-semibold">{profile.weightKg} kg</p>
+                  </div>
+                </div>
+              )}
+              {profile.heightCm && (
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
+                  <Icon name="height" size={20} className="text-muted-foreground flex-shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Height</p>
+                    <p className="font-semibold">{profile.heightCm} cm</p>
+                  </div>
+                </div>
+              )}
+              {profile.bmi && (
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
+                  <Icon name="straighten" size={20} className="text-muted-foreground flex-shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">BMI</p>
+                    <p className="font-semibold">{profile.bmi} <span className="text-xs font-normal text-muted-foreground">
+                      {profile.bmi < 18.5 ? 'Underweight' : profile.bmi < 25 ? 'Normal' : profile.bmi < 30 ? 'Overweight' : 'Obese'}
+                    </span></p>
+                  </div>
+                </div>
+              )}
+              {profile.sleepMinutes > 0 && (
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
+                  <Icon name="bedtime" size={20} className="text-muted-foreground flex-shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Sleep last night</p>
+                    <p className="font-semibold">{Math.floor(profile.sleepMinutes / 60)}h {profile.sleepMinutes % 60}m</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="max-w-[540px] mb-6">
         <CardContent className="pt-6">
