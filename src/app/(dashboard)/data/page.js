@@ -22,9 +22,19 @@ import { refreshGoogleToken } from '@/lib/google-auth'
 import { Card, CardContent } from '@/components/ui/card'
 import { StepsBarChart } from '@/components/steps-bar-chart'
 import { HistoryTable } from '@/components/history-table'
+import { Icon } from '@/components/icon'
 
 export const metadata = { title: 'My Data — KyaReFitting aa' }
 
+const STAT = ({ icon, label, value }) => (
+  <Card>
+    <CardContent className="pt-5 pb-5">
+      <Icon name={icon} size={26} className="text-muted-foreground mb-2" />
+      <p className="text-2xl font-bold">{value}</p>
+      <p className="text-xs text-muted-foreground uppercase tracking-wide mt-1">{label}</p>
+    </CardContent>
+  </Card>
+)
 
 export default async function DataPage() {
   const supabase = await createClient()
