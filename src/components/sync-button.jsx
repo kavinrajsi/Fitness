@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Icon } from '@/components/icon'
 import { useRouter } from 'next/navigation'
 
@@ -27,6 +27,11 @@ export function SyncButton() {
   const [stepDebug, setStepDebug] = useState({})
   const [errorMsg, setErrorMsg] = useState(null)
   const router = useRouter()
+
+  useEffect(() => {
+    document.body.style.overflow = open ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
+  }, [open])
 
   const doneCount = STEPS.filter(s => stepStatus[s.key] === 'done').length
   const resolvedSteps = stepDebug.saving?.dailySteps ?? []
