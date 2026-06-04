@@ -47,7 +47,10 @@ export default async function ProfilePage({ searchParams }) {
       </div>
 
       <div className={styles.card}>
-        <h2 className={styles['card__title']}>Details</h2>
+        <div className={styles['card__head']}>
+          <h2 className={styles['card__title']}>Details</h2>
+          <p className={styles['card__desc']}>From Google Health and your account</p>
+        </div>
         <Detail label="Height" value={d?.heightCm != null ? `${d.heightCm} cm` : null} />
         <Detail label="Weight" value={d?.weightKg != null ? `${d.weightKg} kg` : null} />
         <Detail label="BMI" value={d?.bmi != null ? `${d.bmi} (${d.bmiCategory})` : null} />
@@ -57,7 +60,10 @@ export default async function ProfilePage({ searchParams }) {
       </div>
 
       <div className={styles.card}>
-        <h2 className={styles['card__title']}>Google Health</h2>
+        <div className={styles['card__head']}>
+          <h2 className={styles['card__title']}>Google Health</h2>
+          <p className={styles['card__desc']}>Sync steps, heart rate, sleep and more</p>
+        </div>
         {health === 'connected' && <p className={styles.hint}>Google Health connected.</p>}
         {health === 'connect_failed' && (
           <p className={styles.hint}>Couldn&apos;t connect Google Health — please try again.</p>
@@ -71,7 +77,10 @@ export default async function ProfilePage({ searchParams }) {
       </div>
 
       <div className={styles.card}>
-        <h2 className={styles['card__title']}>Daily step goal</h2>
+        <div className={styles['card__head']}>
+          <h2 className={styles['card__title']}>Daily step goal</h2>
+          <p className={styles['card__desc']}>Your target for the dashboard goal ring</p>
+        </div>
         <form action={saveStepGoal} className={styles.form}>
           <div className={styles['form__fields']}>
             <label className={styles['form__field']}>
