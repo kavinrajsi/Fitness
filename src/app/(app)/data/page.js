@@ -35,9 +35,11 @@ export default async function DataPage() {
   const average = days.length ? Math.round(total / days.length) : 0
 
   return (
-    <>
-      <h1 className={styles['page__title']}>Steps</h1>
-      <p className={styles['page__subtitle']}>Last {DAYS} days · Google Health</p>
+    <div className={styles.card}>
+      <div className={styles['card__head']}>
+        <h1 className={styles['card__title']}>Steps</h1>
+        <p className={styles['card__desc']}>Last {DAYS} days · Google Health</p>
+      </div>
 
       {days.length === 0 ? (
         <div className={styles.prompt}>
@@ -62,25 +64,23 @@ export default async function DataPage() {
             <Stat label="Daily avg" value={average.toLocaleString()} />
           </div>
 
-          <div className={styles.card}>
-            <ul className={styles.chart}>
-              {days.map((r) => (
-                <li key={r.date} className={styles['chart__row']}>
-                  <span className={styles['chart__date']}>{formatDate(r.date)}</span>
-                  <span className={styles['chart__track']}>
-                    <span
-                      className={styles['chart__bar']}
-                      style={{ width: max ? `${((r.steps ?? 0) / max) * 100}%` : '0%' }}
-                    />
-                  </span>
-                  <span className={styles['chart__count']}>{(r.steps ?? 0).toLocaleString()}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <ul className={styles.chart}>
+            {days.map((r) => (
+              <li key={r.date} className={styles['chart__row']}>
+                <span className={styles['chart__date']}>{formatDate(r.date)}</span>
+                <span className={styles['chart__track']}>
+                  <span
+                    className={styles['chart__bar']}
+                    style={{ width: max ? `${((r.steps ?? 0) / max) * 100}%` : '0%' }}
+                  />
+                </span>
+                <span className={styles['chart__count']}>{(r.steps ?? 0).toLocaleString()}</span>
+              </li>
+            ))}
+          </ul>
         </>
       )}
-    </>
+    </div>
   )
 }
 

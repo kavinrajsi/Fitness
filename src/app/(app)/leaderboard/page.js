@@ -57,9 +57,11 @@ export default async function LeaderboardPage({ searchParams }) {
   const anySteps = ranked.some((r) => r.steps > 0)
 
   return (
-    <>
-      <h1 className={styles['page__title']}>Leaderboard</h1>
-      <p className={styles['page__subtitle']}>Steps · {period.label}</p>
+    <div className={styles.card}>
+      <div className={styles['card__head']}>
+        <h1 className={styles['card__title']}>Leaderboard</h1>
+        <p className={styles['card__desc']}>Total steps · {period.label}</p>
+      </div>
 
       <div className={styles['leaderboard__tabs']}>
         {PERIODS.map((p) => (
@@ -80,8 +82,7 @@ export default async function LeaderboardPage({ searchParams }) {
       {!anySteps ? (
         <p className={styles.note}>No steps on the leaderboard yet — sync to get on the board.</p>
       ) : (
-        <div className={styles.card}>
-          <ul className={styles['leaderboard__list']}>
+        <ul className={styles['leaderboard__list']}>
             {shown.map((r) => (
               <li
                 key={r.id}
@@ -113,9 +114,8 @@ export default async function LeaderboardPage({ searchParams }) {
                 <span className={styles['leaderboard__steps']}>{r.steps.toLocaleString()}</span>
               </li>
             ))}
-          </ul>
-        </div>
+        </ul>
       )}
-    </>
+    </div>
   )
 }

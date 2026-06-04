@@ -131,6 +131,22 @@
   letter-spacing: -0.02em;
 }
 
+/* shadcn CardHeader (title + description) */
+.card__head {
+  margin-bottom: 1.25rem;
+}
+
+.card__head .card__title {
+  margin-bottom: 0.25rem;
+}
+
+.card__desc {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
 /* ---- Block: goal-card / ring / streak ---- */
 .goal-card {
   display: flex;
