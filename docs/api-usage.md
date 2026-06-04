@@ -54,3 +54,28 @@ in one place without touching consumers.
   the 30-minute intra-day step chart and the raw step-source drawer — were removed when
   Google Fit was dropped. The Data page now shows the selected-day step total (from the
   DB), the 7-day bar chart, and the day's activity sessions (from the DB).
+
+## Endpoints per page/route
+
+Google Health function request counts: `getHealthSummary`=3, `getDailySteps`=21,
+`getBodyMetrics`=2, `getHeartRateWeek`=7 (POST `dailyRollUp`); `getSleepData`,
+`getSleepWeek`, `getActivitySessions`=1 each (GET `dataPoints` list).
+
+| Page / Route | Supabase Auth | Supabase DB / RPC | Google OAuth | Google Health |
+|---|---|---|---|---|
+| `/dashboard` | `getUser` | `profiles`, `health_daily`, `activity_sessions`, `get_leaderboard` | token refresh | `getHealthSummary`, `getDailySteps`, `getBodyMetrics`, `getSleepData`, `getActivitySessions` |
+| `/data` | `getUser` | `profiles`, `health_daily`, `activity_sessions` | token refresh | `getDailySteps` |
+| `/leaderboard` | `getUser` | `get_leaderboard` | — | — |
+| `/leaderboard/[userId]` | `getUser` | `get_leaderboard`, `get_user_health_history`, `activity_sessions` | — | — |
+| `/profile` | `getUser` | `profiles`, `health_daily` | — | — |
+| `/admin` | `getUser`, `auth.admin` | `profiles`, `health_daily`, `activity_sessions`, `sync_logs` | — | — |
+| `GET /api/sync/stream` | `getUser` | `profiles`, `health_daily`, `activity_sessions`, `sync_logs` | token refresh | `getHealthSummary`, `getDailySteps`, `getBodyMetrics`, `getSleepWeek`, `getActivitySessions`, `getHeartRateWeek` |
+| `POST /api/sync` | — (CRON_SECRET) | `profiles`, `health_daily`, `activity_sessions`, `sync_logs` | token refresh | `getHealthSummary`, `getDailySteps`, `getBodyMetrics`, `getSleepWeek`, `getActivitySessions` |
+| `GET /api/og/leaderboard` | — | `get_leaderboard` | — | — |
+| `POST /api/webhooks/health` | — (shared secret) | `profiles`, `health_daily`, `activity_sessions`, `sync_logs` | token refresh | `getHealthUserId`, then full `syncUserHealth` set |
+| `GET /auth/google` | `signInWithOAuth` | — | → `accounts.google.com` | — |
+| `GET /auth/callback` | `exchangeCodeForSession` | `profiles` | — | — |
+
+Static / client-auth pages (no server endpoints): `/`, `/help`, `/privacy`, `/terms`
+(static); `/signin`, `/signup`, `/forgot-password`, `/reset-password` (client-side
+Supabase auth only).

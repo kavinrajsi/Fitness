@@ -16,4 +16,5 @@ export {
   getSleepWeek,
   getActivitySessions,
   getHeartRateWeek,
+  getHealthUserId,
 } from '@/lib/google-health'

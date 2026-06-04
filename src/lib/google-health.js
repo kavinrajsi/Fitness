@@ -64,6 +64,18 @@ async function listPoints(token, dataType, filter) {
   return res.json()
 }
 
+// Returns the user's stable Google Health user id (healthUserId), used to map
+// inbound webhook notifications back to our user. GET /v4/users/me/identity.
+export async function getHealthUserId(token) {
+  const res = await fetch('https://health.googleapis.com/v4/users/me/identity', {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+  })
+  if (!res.ok) return null
+  const data = await res.json()
+  return data.healthUserId ?? null
+}
+
 export async function getHealthSummary(token) {
   const today = isoDate(0)
   const tomorrow = isoDate(1)
