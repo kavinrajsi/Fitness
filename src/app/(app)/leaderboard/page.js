@@ -1,10 +1,10 @@
 /**
- * /leaderboard — ranks all users by total steps over a selectable window
- * (?period=today|7d|30d|all, default 7d).
+ * /leaderboard — ranks all users and shows each one's steps for Today, the last 7
+ * days, and the last 30 days side by side. Ranked by the 7-day total.
  *
  * daily_metrics + profiles are RLS "own-row only", so the ranking is built with the
  * service-role client server-side. Only leaderboard-safe fields are surfaced
- * (display name, avatar, step total) — never emails or tokens.
+ * (display name, avatar, step totals) — never emails or tokens.
  */
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
@@ -14,40 +14,38 @@ export const dynamic = 'force-dynamic'
 
 export const metadata = { title: 'Leaderboard — KyaReFitting aa' }
 
-const PERIODS = [
-  { key: 'today', label: 'Today', days: 1 },
-  { key: '7d', label: '7d', days: 7 },
-  { key: '30d', label: '30d', days: 30 },
-  { key: 'all', label: 'All-time', days: null },
-]
+// Compact for readability on a phone: 5,028 stays full; 37,168 → 37.2K.
+function fmt(n) {
+  return n >= 10000
+    ? new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(n)
+    : n.toLocaleString()
+}
 
-export default async function LeaderboardPage({ searchParams }) {
-  const { period: periodParam } = await searchParams
-  const period = PERIODS.find((p) => p.key === periodParam) ?? PERIODS[1] // default 7d
-
+export default async function LeaderboardPage() {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   const service = createServiceClient()
-  // IST civil date window (matches how daily_metrics dates are stored).
   const istNow = Date.now() + 5.5 * 3600 * 1000
-  const since = period.days
-    ? new Date(istNow - (period.days - 1) * 86400000).toISOString().slice(0, 10)
-    : null
-
-  let query = service.from('daily_metrics').select('user_id, steps')
-  if (since) query = query.gte('date', since)
+  const day = (offset) => new Date(istNow - offset * 86400000).toISOString().slice(0, 10)
+  const today = day(0)
+  const since7 = day(6)
+  const since30 = day(29)
 
   const [{ data: metrics }, { data: profiles }] = await Promise.all([
-    query,
+    service.from('daily_metrics').select('user_id, date, steps').gte('date', since30),
     service.from('profiles').select('id, full_name, avatar_url'),
   ])
 
-  const stepsByUser = {}
+  const agg = {}
   for (const m of metrics ?? []) {
-    stepsByUser[m.user_id] = (stepsByUser[m.user_id] ?? 0) + (m.steps ?? 0)
+    const a = (agg[m.user_id] ??= { today: 0, d7: 0, d30: 0 })
+    const steps = m.steps ?? 0
+    a.d30 += steps
+    if (m.date >= since7) a.d7 += steps
+    if (m.date === today) a.today += steps
   }
 
   const ranked = (profiles ?? [])
@@ -55,35 +53,31 @@ export default async function LeaderboardPage({ searchParams }) {
       id: p.id,
       name: p.full_name ?? 'Anonymous',
       avatar: p.avatar_url,
-      steps: stepsByUser[p.id] ?? 0,
+      ...(agg[p.id] ?? { today: 0, d7: 0, d30: 0 }),
     }))
-    .sort((a, b) => b.steps - a.steps)
+    .sort((a, b) => b.d7 - a.d7 || b.d30 - a.d30)
     .map((row, i) => ({ ...row, rank: i + 1 }))
 
-  const shown = ranked.filter((r) => r.steps > 0 || r.id === user.id)
-  const anySteps = ranked.some((r) => r.steps > 0)
+  const shown = ranked.filter((r) => r.d30 > 0 || r.id === user.id)
+  const anyData = ranked.some((r) => r.d30 > 0)
 
   return (
     <>
       <h1 className={styles.pageTitle}>Leaderboard</h1>
-      <p className={styles.pageSub}>Total steps</p>
+      <p className={styles.pageSub}>Steps · ranked by last 7 days</p>
 
-      <div className={styles.tabs}>
-        {PERIODS.map((p) => (
-          <a
-            key={p.key}
-            href={`/leaderboard?period=${p.key}`}
-            className={p.key === period.key ? `${styles.tab} ${styles.tabActive}` : styles.tab}
-          >
-            {p.label}
-          </a>
-        ))}
-      </div>
-
-      {!anySteps ? (
+      {!anyData ? (
         <p className={styles.note}>No steps on the leaderboard yet — sync to get on the board.</p>
       ) : (
         <div className={styles.card}>
+          <div className={styles.lbHead}>
+            <span />
+            <span />
+            <span />
+            <span className={styles.lbCol}>Today</span>
+            <span className={styles.lbCol}>7d</span>
+            <span className={styles.lbCol}>30d</span>
+          </div>
           <ul className={styles.rows}>
             {shown.map((r) => (
               <li
@@ -103,7 +97,9 @@ export default async function LeaderboardPage({ searchParams }) {
                   {r.name}
                   {r.id === user.id && <span className={styles.lbYou}> (you)</span>}
                 </span>
-                <span className={styles.lbSteps}>{r.steps.toLocaleString()}</span>
+                <span className={styles.lbNum}>{fmt(r.today)}</span>
+                <span className={styles.lbNum}>{fmt(r.d7)}</span>
+                <span className={styles.lbNum}>{fmt(r.d30)}</span>
               </li>
             ))}
           </ul>
