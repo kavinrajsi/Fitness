@@ -1,31 +1,33 @@
 /**
- * Dashboard overview — greeting + at-a-glance stats (today's steps, weight, height,
- * age) and demographics, with the full step history on /data and editing on /profile.
+ * Dashboard — gamified home: daily step-goal ring, streak, achievements, plus a few
+ * body stats. Steps come from daily_metrics; goal from profiles.daily_step_goal.
  */
 import { createClient } from '@/lib/supabase/server'
 import { getUserDetails } from '@/lib/get-user-details'
+import { computeGamification } from '@/lib/gamification'
 import styles from '../app.module.css'
 
 export const dynamic = 'force-dynamic'
 
 export const metadata = { title: 'Dashboard — KyaReFitting aa' }
 
-export default async function DashboardPage() {
-  const d = await getUserDetails()
+const R = 52
+const CIRC = 2 * Math.PI * R
 
-  // Today's metrics from the synced daily_metrics table (IST civil date).
+export default async function DashboardPage() {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  const istToday = new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().slice(0, 10)
-  const { data: today } = await supabase
-    .from('daily_metrics')
-    .select('steps, calories, distance_km')
-    .eq('user_id', user.id)
-    .eq('date', istToday)
-    .maybeSingle()
-  const stepsToday = today?.steps ?? null
+
+  const [{ data: profile }, { data: rows }, d] = await Promise.all([
+    supabase.from('profiles').select('daily_step_goal').eq('id', user.id).maybeSingle(),
+    supabase.from('daily_metrics').select('date, steps').eq('user_id', user.id),
+    getUserDetails(),
+  ])
+
+  const goal = profile?.daily_step_goal ?? 10000
+  const game = computeGamification(rows ?? [], goal)
 
   const name = d?.name ?? 'there'
   const initial = (name?.[0] ?? d?.email?.[0] ?? '?').toUpperCase()
@@ -42,22 +44,61 @@ export default async function DashboardPage() {
           </div>
         )}
         <div>
-          <h1 className={styles.userName}>Welcome, {name}</h1>
+          <h1 className={styles.userName}>Hi, {name}</h1>
           {d?.email && <p className={styles.userEmail}>{d.email}</p>}
         </div>
       </div>
 
-      <div className={styles.stats}>
-        <Stat label="Steps today" value={stepsToday != null ? stepsToday.toLocaleString() : '—'} />
-        <Stat label="Weight" value={d?.weightKg != null ? `${d.weightKg} kg` : '—'} />
-        <Stat label="Height" value={d?.heightCm != null ? `${d.heightCm} cm` : '—'} />
-        <Stat label="Age" value={d?.age != null ? `${d.age}` : '—'} />
+      <div className={`${styles.card} ${styles.goalCard}`}>
+        <div className={styles.ringWrap}>
+          <svg viewBox="0 0 120 120" className={styles.ring} aria-hidden="true">
+            <circle cx="60" cy="60" r={R} className={styles.ringTrack} />
+            <circle
+              cx="60"
+              cy="60"
+              r={R}
+              className={styles.ringFill}
+              transform="rotate(-90 60 60)"
+              style={{ strokeDasharray: CIRC, strokeDashoffset: CIRC * (1 - game.pct) }}
+            />
+          </svg>
+          <div className={styles.ringText}>
+            <span className={styles.ringSteps}>{game.today.toLocaleString()}</span>
+            <span className={styles.ringGoal}>/ {goal.toLocaleString()}</span>
+            <span className={styles.ringPct}>{Math.round(game.pct * 100)}%</span>
+          </div>
+        </div>
+
+        <div className={styles.streak}>
+          <span className={styles.streakFlame} aria-hidden="true">🔥</span>
+          <div>
+            <div className={styles.streakNum}>{game.currentStreak}-day streak</div>
+            <div className={styles.streakBest}>Best: {game.bestStreak} days</div>
+            <div className={styles.streakHint}>Goal: {goal.toLocaleString()} steps/day</div>
+          </div>
+        </div>
       </div>
 
       <div className={styles.card}>
-        <h2 className={styles.cardTitle}>Details</h2>
-        <Detail label="Gender" value={d?.gender} />
-        <Detail label="Birthday" value={d?.birthday} />
+        <h2 className={styles.cardTitle}>Achievements</h2>
+        <div className={styles.achGrid}>
+          {game.achievements.map((a) => (
+            <div
+              key={a.id}
+              className={a.earned ? `${styles.ach} ${styles.achEarned}` : `${styles.ach} ${styles.achLocked}`}
+              title={a.name}
+            >
+              <span className={styles.achIcon}>{a.earned ? a.icon : '🔒'}</span>
+              <span className={styles.achName}>{a.name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className={styles.stats}>
+        <Stat label="Weight" value={d?.weightKg != null ? `${d.weightKg} kg` : '—'} />
+        <Stat label="Height" value={d?.heightCm != null ? `${d.heightCm} cm` : '—'} />
+        <Stat label="Age" value={d?.age != null ? `${d.age}` : '—'} />
       </div>
 
       {!d?.healthConnected && (
@@ -74,15 +115,6 @@ function Stat({ label, value }) {
     <div className={styles.stat}>
       <span className={styles.statValue}>{value}</span>
       <span className={styles.statLabel}>{label}</span>
-    </div>
-  )
-}
-
-function Detail({ label, value }) {
-  return (
-    <div className={styles.detailRow}>
-      <span className={styles.detailLabel}>{label}</span>
-      <span className={styles.detailValue}>{value ?? '—'}</span>
     </div>
   )
 }
