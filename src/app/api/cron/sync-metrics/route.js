@@ -11,8 +11,7 @@
  */
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { getValidHealthAccessToken } from '@/lib/google-auth'
-import { getDailyMetrics } from '@/lib/google-health'
+import { syncUserMetrics } from '@/lib/sync-metrics'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -46,27 +45,13 @@ export async function GET(request) {
 
   for (const profile of profiles ?? []) {
     try {
-      const token = await getValidHealthAccessToken(profile, supabase)
-      if (!token) {
+      const result = await syncUserMetrics(supabase, profile, { days })
+      if (result.ok && result.rows > 0) {
+        users++
+        rows += result.rows
+      } else {
         skipped++
-        continue
       }
-      const metrics = await getDailyMetrics(token, days)
-      if (!metrics?.length) {
-        skipped++
-        continue
-      }
-      const now = new Date().toISOString()
-      const payload = metrics.map((m) => ({ user_id: profile.id, ...m, updated_at: now }))
-      const { error: upErr } = await supabase
-        .from('daily_metrics')
-        .upsert(payload, { onConflict: 'user_id,date' })
-      if (upErr) {
-        skipped++
-        continue
-      }
-      users++
-      rows += payload.length
     } catch {
       skipped++
     }

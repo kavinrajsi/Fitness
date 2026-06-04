@@ -114,6 +114,20 @@ export async function getHealthProfile(token) {
   return { age: data.age ?? null }
 }
 
+/**
+ * The user's stable Google Health id (healthUserId) from GET /v4/users/me/identity,
+ * used to map inbound webhook notifications back to our user. Returns null on failure.
+ */
+export async function getHealthUserId(token) {
+  const res = await fetch('https://health.googleapis.com/v4/users/me/identity', {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+  })
+  if (!res.ok) return null
+  const data = await res.json()
+  return data.healthUserId ?? null
+}
+
 // Extract a YYYY-MM-DD key from a rollup point's civilStartTime ({date}) or
 // startTime (string), depending on which the API returns.
 function pointDate(pt) {

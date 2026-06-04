@@ -13,8 +13,7 @@
  */
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { getValidHealthAccessToken } from '@/lib/google-auth'
-import { getDailyMetrics } from '@/lib/google-health'
+import { syncUserMetrics } from '@/lib/sync-metrics'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -48,27 +47,22 @@ export async function POST() {
           return controller.close()
         }
 
-        send({ step: 'Refreshing the Google Health access token' })
-        const token = await getValidHealthAccessToken(profile, service)
-        if (!token) {
-          send({ error: 'Could not refresh your Google Health token — please reconnect.' })
+        const result = await syncUserMetrics(service, profile, {
+          days: 90,
+          onStep: (s) => send({ step: s }),
+        })
+
+        if (!result.ok) {
+          send({
+            error:
+              result.reason === 'no_token'
+                ? 'Could not refresh your Google Health token — please reconnect.'
+                : 'Sync failed — please try again.',
+          })
           return controller.close()
         }
 
-        send({ step: 'Fetching steps, calories, distance & heart rate (last 90 days)' })
-        const metrics = await getDailyMetrics(token, 90)
-
-        send({ step: `Saving ${metrics.length} days to the database` })
-        const now = new Date().toISOString()
-        if (metrics.length) {
-          await service
-            .from('daily_metrics')
-            .upsert(
-              metrics.map((m) => ({ user_id: user.id, ...m, updated_at: now })),
-              { onConflict: 'user_id,date' }
-            )
-        }
-
+        const metrics = result.metrics
         const totalSteps = metrics.reduce((s, m) => s + (m.steps || 0), 0)
         const withSteps = metrics.filter((m) => (m.steps || 0) > 0).length
         send({
