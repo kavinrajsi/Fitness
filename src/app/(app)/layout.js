@@ -34,7 +34,11 @@ export default async function AppLayout({ children }) {
 
   return (
     <SidebarProvider>
-      <AppSidebar user={sidebarUser} variant="inset" />
+      <AppSidebar
+        user={sidebarUser}
+        isAdmin={user.email === 'sikavinraj@gmail.com'}
+        variant="inset"
+      />
       <SidebarInset>
         <header className="bg-background/80 sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
           <SidebarTrigger className="-ml-1" />
