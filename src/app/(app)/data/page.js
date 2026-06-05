@@ -7,11 +7,13 @@ import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import {
   Table,
   TableBody,
@@ -25,22 +27,31 @@ export const dynamic = 'force-dynamic'
 
 export const metadata = { title: 'Steps data — KyaReFitting' }
 
-const DAYS = 90
+const RANGES = [
+  { key: '90d', label: 'Last 90 days', short: '90D', limit: 90 },
+  { key: 'year', label: 'Last year', short: '1Y', limit: 365 },
+  { key: 'all', label: 'All time', short: 'All', limit: null },
+]
 
-export default async function DataPage() {
+export default async function DataPage({ searchParams }) {
+  const { range: rangeParam } = await searchParams
+  const range = RANGES.find((option) => option.key === rangeParam) ?? RANGES[0]
+
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
+  let metricsQuery = supabase
+    .from('daily_metrics')
+    .select('date, steps')
+    .eq('user_id', user.id)
+    .order('date', { ascending: false })
+  if (range.limit) metricsQuery = metricsQuery.limit(range.limit)
+
   const [{ data: profile }, { data: dailyMetrics }] = await Promise.all([
     supabase.from('profiles').select('google_health_refresh_token').eq('id', user.id).maybeSingle(),
-    supabase
-      .from('daily_metrics')
-      .select('date, steps')
-      .eq('user_id', user.id)
-      .order('date', { ascending: false })
-      .limit(DAYS),
+    metricsQuery,
   ])
 
   const connected = !!profile?.google_health_refresh_token
@@ -53,7 +64,25 @@ export default async function DataPage() {
     <Card>
       <CardHeader>
         <CardTitle>Steps</CardTitle>
-        <CardDescription>Last {DAYS} days · Google Health</CardDescription>
+        <CardDescription>{range.label} · Google Health</CardDescription>
+        <CardAction>
+          <div className="bg-muted flex gap-0.5 rounded-lg p-0.5">
+            {RANGES.map((option) => (
+              <a
+                key={option.key}
+                href={`/data?range=${option.key}`}
+                className={cn(
+                  'rounded-md px-2.5 py-1 text-xs font-medium',
+                  option.key === range.key
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground'
+                )}
+              >
+                {option.short}
+              </a>
+            ))}
+          </div>
+        </CardAction>
       </CardHeader>
 
       <CardContent>
