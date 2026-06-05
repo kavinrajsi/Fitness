@@ -36,7 +36,7 @@ export default async function WorkoutsPage() {
 
   const { data: workouts } = await supabase
     .from('workouts')
-    .select('source_id, started_at, type, duration_min, calories, distance_km')
+    .select('source_id, started_at, type, duration_min, calories, distance_km, steps')
     .eq('user_id', user.id)
     .order('started_at', { ascending: false })
     .limit(100)
@@ -62,6 +62,7 @@ export default async function WorkoutsPage() {
                 <TableHead>Activity</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead className="text-right">Duration</TableHead>
+                <TableHead className="text-right">Steps</TableHead>
                 <TableHead className="text-right">Calories</TableHead>
                 <TableHead className="text-right">Distance</TableHead>
               </TableRow>
@@ -73,6 +74,9 @@ export default async function WorkoutsPage() {
                   <TableCell className="text-muted-foreground">{fmtDate(workout.started_at)}</TableCell>
                   <TableCell className="text-right tabular-nums">
                     {workout.duration_min != null ? `${workout.duration_min} min` : '—'}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {workout.steps != null ? workout.steps.toLocaleString() : '—'}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {workout.calories != null ? workout.calories : '—'}

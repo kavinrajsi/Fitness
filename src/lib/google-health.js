@@ -462,6 +462,19 @@ export async function getWorkouts(token, days = 90) {
         metricsSummary.distanceMillimeters != null
           ? Math.round((Number(metricsSummary.distanceMillimeters) / 1e6) * 100) / 100
           : null,
+      steps: metricsSummary.steps != null ? Math.round(Number(metricsSummary.steps)) : null,
+      active_zone_minutes:
+        metricsSummary.activeZoneMinutes != null
+          ? Math.round(Number(metricsSummary.activeZoneMinutes))
+          : null,
+      elevation_m:
+        metricsSummary.elevationGainMillimeters != null
+          ? Math.round((Number(metricsSummary.elevationGainMillimeters) / 1000) * 10) / 10
+          : null,
+      avg_pace_s_per_m:
+        metricsSummary.averagePaceSecondsPerMeter != null
+          ? Math.round(Number(metricsSummary.averagePaceSecondsPerMeter) * 100) / 100
+          : null,
     })
   }
   return workouts
