@@ -18,6 +18,8 @@ const ibmPlexMono = IBM_Plex_Mono({
 export const metadata = {
   title: "KyaReFitting",
   description: "Sign in with Google to get started.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "KyaReFitting", statusBarStyle: "default" },
 };
 
 export const viewport = {

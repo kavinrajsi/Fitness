@@ -14,6 +14,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { syncUserMetrics } from '@/lib/sync-metrics'
+import { notifyTopMovers } from '@/lib/notify-leaderboard'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -63,6 +64,9 @@ export async function POST() {
           })
           return controller.close()
         }
+
+        // Alert everyone if this sync moved a top-4 (7-day) person up the board.
+        await notifyTopMovers(service)
 
         const metrics = result.metrics
         const totalSteps = metrics.reduce((sum, metric) => sum + (metric.steps || 0), 0)

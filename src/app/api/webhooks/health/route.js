@@ -20,6 +20,7 @@
  */
 import { createServiceClient } from '@/lib/supabase/service'
 import { syncUserMetrics } from '@/lib/sync-metrics'
+import { notifyTopMovers } from '@/lib/notify-leaderboard'
 
 export const dynamic = 'force-dynamic'
 
@@ -63,6 +64,7 @@ export async function POST(request) {
     try {
       // Webhook fires on new data, so a short window is enough.
       await syncUserMetrics(supabase, profile, { days: 7 })
+      await notifyTopMovers(supabase)
     } catch (err) {
       // Ack anyway — retries are for delivery failures, not our processing errors.
       console.error(`[webhook] sync failed for ${healthUserId}:`, err?.message ?? err)
