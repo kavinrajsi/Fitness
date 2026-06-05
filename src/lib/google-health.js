@@ -208,13 +208,17 @@ export async function getDailyMetrics(token, days = 90) {
   const start = isoDate(-(days - 1))
   const end = isoDate(1)
 
-  const [stepsD, calD, distD, rhrD, sleepD, hydD] = await Promise.all([
+  const [stepsD, calD, distD, rhrD, sleepD, hydD, amD, vo2D, spo2D, hrvD] = await Promise.all([
     dailyRollUp(token, 'steps', start, end),
     dailyRollUp(token, 'active-energy-burned', start, end),
     dailyRollUp(token, 'distance', start, end),
     listPoints(token, 'daily-resting-heart-rate', 200),
     listSleep(token, days),
     listPoints(token, 'hydration-log', 200),
+    listPoints(token, 'active-minutes', 1000),
+    listPoints(token, 'daily-vo2-max', 200),
+    listPoints(token, 'daily-oxygen-saturation', 200),
+    listPoints(token, 'daily-heart-rate-variability', 200),
   ])
 
   const byDate = {}
@@ -227,7 +231,16 @@ export async function getDailyMetrics(token, days = 90) {
       sleep_min: null,
       resting_hr: null,
       hydration_ml: null,
+      active_min: null,
+      vo2_max: null,
+      spo2: null,
+      hrv_ms: null,
     })
+
+  const civilKey = (date) =>
+    date?.year && Number(date.year) >= 2000
+      ? `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`
+      : null
 
   for (const pt of stepsD?.rollupDataPoints ?? []) {
     const k = pointDate(pt)
@@ -277,6 +290,39 @@ export async function getDailyMetrics(token, days = 90) {
     r.hydration_ml = (r.hydration_ml ?? 0) + ml
   }
 
+  // Active minutes — sum the per-activity-level minutes for each (civil) day.
+  for (const pt of amD?.dataPoints ?? []) {
+    const am = pt.activeMinutes
+    const k = civilKey(am?.interval?.civilStartTime?.date)
+    if (!k) continue
+    let mins = 0
+    for (const lvl of am.activeMinutesByActivityLevel ?? []) mins += Number(lvl.activeMinutes ?? 0)
+    if (mins > 0) row(k).active_min = (row(k).active_min ?? 0) + mins
+  }
+
+  // VO2 max — daily cardio-fitness value.
+  for (const pt of vo2D?.dataPoints ?? []) {
+    const v = pt.dailyVo2Max
+    const k = civilKey(v?.date)
+    if (k && v.vo2Max != null) row(k).vo2_max = Math.round(Number(v.vo2Max) * 10) / 10
+  }
+
+  // SpO2 (defensive — no data in test account; field name unverified).
+  for (const pt of spo2D?.dataPoints ?? []) {
+    const s = pt.dailyOxygenSaturation
+    const k = civilKey(s?.date)
+    const v = s?.averagePercentage ?? s?.percentage ?? s?.avgPercentage
+    if (k && v != null) row(k).spo2 = Math.round(Number(v) * 10) / 10
+  }
+
+  // HRV (defensive — no data in test account; field name unverified).
+  for (const pt of hrvD?.dataPoints ?? []) {
+    const h = pt.dailyHeartRateVariability
+    const k = civilKey(h?.date)
+    const v = h?.heartRateVariabilityMillis ?? h?.hrvMillis ?? h?.millis ?? h?.rmssd
+    if (k && v != null) row(k).hrv_ms = Math.round(Number(v) * 10) / 10
+  }
+
   return Object.values(byDate).sort((a, b) => b.date.localeCompare(a.date))
 }
 
@@ -292,4 +338,52 @@ async function listSleep(token, days) {
   })
   if (!res.ok) return null
   return res.json()
+}
+
+function titleCase(s) {
+  return s
+    ? s.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    : s
+}
+
+/**
+ * Exercise sessions (workouts) for the last `days` days from the Google Health
+ * `exercise` data type. Verified fields: exercise.interval.{startTime,endTime},
+ * exerciseType, displayName, activeDuration ("Ns"), metricsSummary.{caloriesKcal,
+ * distanceMillimeters}. source_id is the trailing id of the dataPoint `name`.
+ */
+export async function getWorkouts(token, days = 90) {
+  const data = await listPoints(token, 'exercise', 300)
+  if (!data) return []
+
+  const cutoff = Date.now() - days * 86400000
+  const out = []
+  for (const pt of data.dataPoints ?? []) {
+    const e = pt.exercise
+    const start = e?.interval?.startTime
+    if (!start || new Date(start).getTime() < cutoff) continue
+    const id = (pt.name ?? '').split('/').pop()
+    if (!id) continue
+
+    const end = e.interval?.endTime ?? null
+    const durSec = e.activeDuration
+      ? parseFloat(e.activeDuration)
+      : end
+        ? (new Date(end).getTime() - new Date(start).getTime()) / 1000
+        : 0
+    const m = e.metricsSummary ?? {}
+    out.push({
+      source_id: id,
+      started_at: start,
+      ended_at: end,
+      type: e.displayName ?? titleCase(e.exerciseType) ?? 'Workout',
+      duration_min: durSec ? Math.round(durSec / 60) : null,
+      calories: m.caloriesKcal != null ? Math.round(Number(m.caloriesKcal)) : null,
+      distance_km:
+        m.distanceMillimeters != null
+          ? Math.round((Number(m.distanceMillimeters) / 1e6) * 100) / 100
+          : null,
+    })
+  }
+  return out
 }
