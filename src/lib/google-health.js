@@ -276,16 +276,20 @@ export async function getDailyMetrics(token, days = 90) {
     dayRow.sleep_min = (dayRow.sleep_min ?? 0) + minutes
   }
 
-  // Hydration (nutrition scope) — sum logged volume per day → ml. Session type; the
-  // volume/date field shape is parsed defensively, pending real-data confirmation.
+  // Hydration (nutrition scope) — sum logged volume per day → ml. Verified shape:
+  // hydrationLog.amountConsumed.milliliters, keyed by the interval's civil start date.
   for (const point of hydD?.dataPoints ?? []) {
     const hydrationLog = point.hydrationLog
-    if (!hydrationLog) continue
-    const milliliters = Number(hydrationLog.volumeMilliliters ?? hydrationLog.milliliters ?? hydrationLog.volume ?? 0)
+    const milliliters = Number(hydrationLog?.amountConsumed?.milliliters ?? 0)
     if (!(milliliters > 0)) continue
-    const time = hydrationLog.interval?.endTime ?? hydrationLog.interval?.startTime ?? hydrationLog.sampleTime?.physicalTime
-    const dateKey = time ? new Date(new Date(time).getTime() + IST_OFFSET_MS).toISOString().slice(0, 10) : null
-    if (!dateKey) continue
+    const dateKey =
+      civilKey(hydrationLog.interval?.civilStartTime?.date) ??
+      (hydrationLog.interval?.startTime
+        ? new Date(new Date(hydrationLog.interval.startTime).getTime() + IST_OFFSET_MS)
+            .toISOString()
+            .slice(0, 10)
+        : null)
+    if (!dateKey || dateKey < start) continue
     const dayRow = row(dateKey)
     dayRow.hydration_ml = (dayRow.hydration_ml ?? 0) + milliliters
   }
