@@ -1,13 +1,20 @@
 /**
- * Sign-in page — the only entry point for authentication.
- * Google OAuth is the sole sign-in method; email/password is intentionally not supported.
+ * Sign-in — styled with the shadcn login-03 block, adapted to Google-only auth
+ * (no email/password or Apple, per the app's constraint).
  *
- * The Google button is a plain <a> (not <Link>) so navigating to /auth/google hits the
- * Route Handler as a full document request instead of an RSC navigation.
- *
+ * The Google button is a plain <a> (via Button asChild) so navigating to
+ * /auth/google hits the Route Handler as a full document request.
  * Errors are surfaced via the `?error=` search param set by the callback route.
- * searchParams must be awaited in Next.js 16 before its properties are read.
  */
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { FieldDescription } from '@/components/ui/field'
 
 export const metadata = { title: 'Sign in — KyaReFitting' }
 
@@ -21,44 +28,52 @@ export default async function SignInPage({ searchParams }) {
   const { error } = await searchParams
 
   return (
-    <main>
-      <div>
-        <div>
-          <div>
-            <h1>Welcome back</h1>
-            <p>Login with your Google account</p>
-          </div>
-
-          <div>
-            {error && (
-              <div role="alert">
-                {ERROR_MESSAGES[error] ?? 'Something went wrong. Please try again.'}
-              </div>
-            )}
-
-            <a href="/auth/google">
-              <GoogleIcon />
-              Login with Google
-            </a>
-          </div>
-        </div>
-
-        <p>
-          By clicking continue, you agree to our <a href="/terms">Terms of Service</a> and{' '}
-          <a href="/privacy">Privacy Policy</a>.
-        </p>
+    <div className="bg-background flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
+      <div className="flex w-full max-w-sm flex-col gap-6">
+        <Card>
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl">Welcome back</CardTitle>
+            <CardDescription>Login with your Google account</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4">
+              {error && (
+                <div className="bg-destructive/10 text-destructive rounded-md p-3 text-center text-sm">
+                  {ERROR_MESSAGES[error] ?? 'Something went wrong. Please try again.'}
+                </div>
+              )}
+              <Button asChild variant="outline" className="w-full">
+                <a href="/auth/google">
+                  <GoogleIcon />
+                  Login with Google
+                </a>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+        <FieldDescription className="px-6 text-center">
+          By clicking continue, you agree to our{' '}
+          <a href="/terms" className="underline underline-offset-4 hover:text-primary">
+            Terms of Service
+          </a>{' '}
+          and{' '}
+          <a href="/privacy" className="underline underline-offset-4 hover:text-primary">
+            Privacy Policy
+          </a>
+          .
+        </FieldDescription>
       </div>
-    </main>
+    </div>
   )
 }
 
 function GoogleIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" style={{ flexShrink: 0 }}>
-      <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" />
-      <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z" />
-      <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332Z" />
-      <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58Z" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"
+        fill="currentColor"
+      />
     </svg>
   )
 }
