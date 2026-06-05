@@ -7,6 +7,7 @@
  */
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { Logo } from '@/components/logo'
 import {
   LayoutDashboard,
   Footprints,
@@ -48,6 +49,7 @@ export function AppSidebar({ user, isAdmin = false, ...props }) {
     <Sidebar {...props}>
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-1.5 text-base font-semibold tracking-tight">
+          <Logo className="size-5" />
           KyaReFitting
         </div>
       </SidebarHeader>

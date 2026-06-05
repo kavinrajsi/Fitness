@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Logo } from '@/components/logo'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,7 +55,8 @@ export default async function Home() {
   return (
     <main className="max-w-5xl mx-auto px-6 py-16">
       <section className="space-y-6">
-        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+        <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          <Logo className="size-6" />
           KyaReFitting
         </p>
         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground">

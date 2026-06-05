@@ -19,6 +19,7 @@ export const metadata = {
   title: "KyaReFitting",
   description: "Sign in with Google to get started.",
   manifest: "/manifest.webmanifest",
+  icons: { apple: "/apple-icon.png" },
   appleWebApp: { capable: true, title: "KyaReFitting", statusBarStyle: "default" },
 };
 
