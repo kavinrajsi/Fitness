@@ -3,7 +3,13 @@
  * real Google Health data: section cards, an activity chart with a range toggle, and
  * achievements. Steps from daily_metrics; goal from profiles.daily_step_goal.
  */
-import { TrendingUpIcon, TrendingDownIcon, FlameIcon } from 'lucide-react'
+import {
+  TrendingUpIcon,
+  TrendingDownIcon,
+  FlameIcon,
+  HeartPulseIcon,
+  DropletIcon,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getUserDetails } from '@/lib/get-user-details'
 import { computeGamification } from '@/lib/gamification'
@@ -45,7 +51,10 @@ export default async function DashboardPage({ searchParams }) {
 
   const [{ data: profile }, { data: rows }, d] = await Promise.all([
     supabase.from('profiles').select('daily_step_goal').eq('id', user.id).maybeSingle(),
-    supabase.from('daily_metrics').select('date, steps').eq('user_id', user.id),
+    supabase
+      .from('daily_metrics')
+      .select('date, steps, resting_hr, hydration_ml')
+      .eq('user_id', user.id),
     getUserDetails(),
   ])
 
@@ -65,6 +74,20 @@ export default async function DashboardPage({ searchParams }) {
   const prev7 = sum(7, 13)
   const avg7 = Math.round(last7 / 7)
 
+  // Latest resting heart rate, and today's hydration (sparse — show most recent).
+  const rhrByDate = {}
+  const hydByDate = {}
+  for (const r of rows ?? []) {
+    if (r.resting_hr != null) rhrByDate[r.date] = r.resting_hr
+    if (r.hydration_ml != null) hydByDate[r.date] = r.hydration_ml
+  }
+  let restingHr = null
+  let hydrationMl = null
+  for (let i = 0; i < 90; i++) {
+    if (restingHr == null && rhrByDate[dkey(i)] != null) restingHr = rhrByDate[dkey(i)]
+    if (hydrationMl == null && hydByDate[dkey(i)] != null) hydrationMl = hydByDate[dkey(i)]
+  }
+
   const series = []
   let chartMax = 0
   let chartTotal = 0
@@ -78,7 +101,7 @@ export default async function DashboardPage({ searchParams }) {
 
   return (
     <div className="flex flex-col gap-4 md:gap-6">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <Metric
           label="Steps today"
           value={today.toLocaleString()}
@@ -106,6 +129,20 @@ export default async function DashboardPage({ searchParams }) {
           progress={game.pct}
           foot={`${today.toLocaleString()} / ${goal.toLocaleString()}`}
           note="Daily step goal"
+        />
+        <Metric
+          label="Resting HR"
+          value={restingHr != null ? `${restingHr} bpm` : '—'}
+          icon={<HeartPulseIcon className="size-4" />}
+          foot="Resting heart rate"
+          note="Most recent"
+        />
+        <Metric
+          label="Hydration"
+          value={hydrationMl != null ? `${(hydrationMl / 1000).toFixed(1)} L` : '—'}
+          icon={<DropletIcon className="size-4" />}
+          foot="Water intake"
+          note={hydrationMl != null ? 'Most recent day' : 'Reconnect to enable'}
         />
       </div>
 
