@@ -27,7 +27,7 @@ export async function POST() {
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (obj) => controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'))
+      const send = (event) => controller.enqueue(encoder.encode(JSON.stringify(event) + '\n'))
       try {
         if (!user) {
           send({ error: 'You are not signed in.' })
@@ -49,7 +49,7 @@ export async function POST() {
 
         const result = await syncUserMetrics(service, profile, {
           days: 90,
-          onStep: (s) => send({ step: s }),
+          onStep: (stepMessage) => send({ step: stepMessage }),
         })
 
         if (!result.ok) {
@@ -63,8 +63,8 @@ export async function POST() {
         }
 
         const metrics = result.metrics
-        const totalSteps = metrics.reduce((s, m) => s + (m.steps || 0), 0)
-        const withSteps = metrics.filter((m) => (m.steps || 0) > 0).length
+        const totalSteps = metrics.reduce((sum, metric) => sum + (metric.steps || 0), 0)
+        const withSteps = metrics.filter((metric) => (metric.steps || 0) > 0).length
         send({
           done: true,
           summary: {

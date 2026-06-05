@@ -33,7 +33,7 @@ export default async function DataPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const [{ data: profile }, { data: rows }] = await Promise.all([
+  const [{ data: profile }, { data: dailyMetrics }] = await Promise.all([
     supabase.from('profiles').select('google_health_refresh_token').eq('id', user.id).maybeSingle(),
     supabase
       .from('daily_metrics')
@@ -44,9 +44,9 @@ export default async function DataPage() {
   ])
 
   const connected = !!profile?.google_health_refresh_token
-  const days = rows ?? []
-  const total = days.reduce((s, r) => s + (r.steps ?? 0), 0)
-  const max = days.reduce((m, r) => Math.max(m, r.steps ?? 0), 0)
+  const days = dailyMetrics ?? []
+  const total = days.reduce((runningTotal, day) => runningTotal + (day.steps ?? 0), 0)
+  const max = days.reduce((highest, day) => Math.max(highest, day.steps ?? 0), 0)
   const average = days.length ? Math.round(total / days.length) : 0
 
   return (
@@ -96,19 +96,19 @@ export default async function DataPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {days.map((r) => (
-                  <TableRow key={r.date}>
+                {days.map((day) => (
+                  <TableRow key={day.date}>
                     <TableCell className="whitespace-nowrap text-muted-foreground">
-                      {formatDate(r.date)}
+                      {formatDate(day.date)}
                     </TableCell>
                     <TableCell className="w-full">
                       <div
                         className="bg-primary h-2 rounded"
-                        style={{ width: max ? `${((r.steps ?? 0) / max) * 100}%` : '0%' }}
+                        style={{ width: max ? `${((day.steps ?? 0) / max) * 100}%` : '0%' }}
                       />
                     </TableCell>
                     <TableCell className="text-right font-medium tabular-nums">
-                      {(r.steps ?? 0).toLocaleString()}
+                      {(day.steps ?? 0).toLocaleString()}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -10,7 +10,7 @@ import { getValidHealthAccessToken } from '@/lib/google-auth'
 import { getDailyMetrics, getHealthUserId, getWorkouts } from '@/lib/google-health'
 
 export async function syncUserMetrics(service, profile, { days = 90, onStep } = {}) {
-  const step = (s) => onStep?.(s)
+  const step = (message) => onStep?.(message)
 
   step('Refreshing the Google Health access token')
   const token = await getValidHealthAccessToken(profile, service)
@@ -33,7 +33,7 @@ export async function syncUserMetrics(service, profile, { days = 90, onStep } = 
     const { error } = await service
       .from('daily_metrics')
       .upsert(
-        metrics.map((m) => ({ user_id: profile.id, ...m, updated_at: now })),
+        metrics.map((metric) => ({ user_id: profile.id, ...metric, updated_at: now })),
         { onConflict: 'user_id,date' }
       )
     if (error) return { ok: false, reason: 'upsert_error', rows: 0, metrics }
@@ -47,7 +47,7 @@ export async function syncUserMetrics(service, profile, { days = 90, onStep } = 
     await service
       .from('workouts')
       .upsert(
-        workouts.map((w) => ({ user_id: profile.id, ...w, updated_at: now })),
+        workouts.map((workout) => ({ user_id: profile.id, ...workout, updated_at: now })),
         { onConflict: 'user_id,source_id' }
       )
   }

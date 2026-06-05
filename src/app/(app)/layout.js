@@ -23,12 +23,12 @@ export default async function AppLayout({ children }) {
     .maybeSingle()
   const healthConnected = !!profile?.google_health_refresh_token
 
-  const meta = user.user_metadata ?? {}
-  const name = meta.full_name ?? meta.name ?? 'Account'
+  const userMetadata = user.user_metadata ?? {}
+  const name = userMetadata.full_name ?? userMetadata.name ?? 'Account'
   const sidebarUser = {
     name,
     email: user.email,
-    avatar: meta.avatar_url ?? meta.picture ?? null,
+    avatar: userMetadata.avatar_url ?? userMetadata.picture ?? null,
     initial: (name?.[0] ?? user.email?.[0] ?? '?').toUpperCase(),
   }
 

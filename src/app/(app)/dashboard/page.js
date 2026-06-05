@@ -41,19 +41,20 @@ const RANGES = [
   { key: '90d', label: '90D', days: 90 },
 ]
 
-const dkey = (o) => new Date(Date.now() + IST - o * 86400000).toISOString().slice(0, 10)
-const pct = (cur, prev) => (prev > 0 ? Math.round(((cur - prev) / prev) * 100) : cur > 0 ? 100 : 0)
+const dkey = (daysAgo) => new Date(Date.now() + IST - daysAgo * 86400000).toISOString().slice(0, 10)
+const pct = (current, previous) =>
+  previous > 0 ? Math.round(((current - previous) / previous) * 100) : current > 0 ? 100 : 0
 
 export default async function DashboardPage({ searchParams }) {
   const { range: rangeParam } = await searchParams
-  const range = RANGES.find((r) => r.key === rangeParam) ?? RANGES[1]
+  const range = RANGES.find((option) => option.key === rangeParam) ?? RANGES[1]
 
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const [{ data: profile }, { data: rows }, d] = await Promise.all([
+  const [{ data: profile }, { data: dailyMetrics }, details] = await Promise.all([
     supabase.from('profiles').select('daily_step_goal').eq('id', user.id).maybeSingle(),
     supabase
       .from('daily_metrics')
@@ -63,26 +64,27 @@ export default async function DashboardPage({ searchParams }) {
   ])
 
   const goal = profile?.daily_step_goal ?? 10000
-  const game = computeGamification(rows ?? [], goal)
+  const game = computeGamification(dailyMetrics ?? [], goal)
 
-  const byDate = {}
-  for (const r of rows ?? []) byDate[r.date] = r.steps ?? 0
-  const sum = (a, b) => {
-    let t = 0
-    for (let i = a; i <= b; i++) t += byDate[dkey(i)] ?? 0
-    return t
+  const stepsByDate = {}
+  for (const metric of dailyMetrics ?? []) stepsByDate[metric.date] = metric.steps ?? 0
+  const sum = (fromDaysAgo, toDaysAgo) => {
+    let total = 0
+    for (let i = fromDaysAgo; i <= toDaysAgo; i++) total += stepsByDate[dkey(i)] ?? 0
+    return total
   }
-  const today = byDate[dkey(0)] ?? 0
-  const yesterday = byDate[dkey(1)] ?? 0
+  const today = stepsByDate[dkey(0)] ?? 0
+  const yesterday = stepsByDate[dkey(1)] ?? 0
   const last7 = sum(0, 6)
   const prev7 = sum(7, 13)
   const avg7 = Math.round(last7 / 7)
 
   // Most-recent value for sparse daily metrics (these aren't recorded every day).
   const latest = (field) => {
-    const byField = {}
-    for (const r of rows ?? []) if (r[field] != null) byField[r.date] = r[field]
-    for (let i = 0; i < 90; i++) if (byField[dkey(i)] != null) return byField[dkey(i)]
+    const valueByDate = {}
+    for (const metric of dailyMetrics ?? [])
+      if (metric[field] != null) valueByDate[metric.date] = metric[field]
+    for (let i = 0; i < 90; i++) if (valueByDate[dkey(i)] != null) return valueByDate[dkey(i)]
     return null
   }
   const restingHr = latest('resting_hr')
@@ -90,13 +92,13 @@ export default async function DashboardPage({ searchParams }) {
   const vo2Max = latest('vo2_max')
   const spo2 = latest('spo2')
   const hrv = latest('hrv_ms')
-  const activeMin = (rows ?? []).find((r) => r.date === dkey(0))?.active_min ?? null
+  const activeMin = (dailyMetrics ?? []).find((metric) => metric.date === dkey(0))?.active_min ?? null
 
   const series = []
   let chartMax = 0
   let chartTotal = 0
   for (let i = range.days - 1; i >= 0; i--) {
-    const steps = byDate[dkey(i)] ?? 0
+    const steps = stepsByDate[dkey(i)] ?? 0
     chartTotal += steps
     if (steps > chartMax) chartMax = steps
     series.push({ key: dkey(i), steps })
@@ -192,18 +194,18 @@ export default async function DashboardPage({ searchParams }) {
           </CardDescription>
           <CardAction>
             <div className="bg-muted flex gap-0.5 rounded-lg p-0.5">
-              {RANGES.map((r) => (
+              {RANGES.map((option) => (
                 <a
-                  key={r.key}
-                  href={`/dashboard?range=${r.key}`}
+                  key={option.key}
+                  href={`/dashboard?range=${option.key}`}
                   className={cn(
                     'rounded-md px-2.5 py-1 text-xs font-medium',
-                    r.key === range.key
+                    option.key === range.key
                       ? 'bg-background text-foreground shadow-sm'
                       : 'text-muted-foreground'
                   )}
                 >
-                  {r.label}
+                  {option.label}
                 </a>
               ))}
             </div>
@@ -211,14 +213,14 @@ export default async function DashboardPage({ searchParams }) {
         </CardHeader>
         <CardContent>
           <div className="flex h-40 items-end gap-px">
-            {series.map((s) => (
+            {series.map((point) => (
               <span
-                key={s.key}
+                key={point.key}
                 className="bg-primary flex-1 rounded-t-sm"
                 style={{
-                  height: chartMax ? `${Math.max((s.steps / chartMax) * 100, 1.5)}%` : '1.5%',
+                  height: chartMax ? `${Math.max((point.steps / chartMax) * 100, 1.5)}%` : '1.5%',
                 }}
-                title={`${s.key}: ${s.steps.toLocaleString()}`}
+                title={`${point.key}: ${point.steps.toLocaleString()}`}
               />
             ))}
           </div>
@@ -231,24 +233,28 @@ export default async function DashboardPage({ searchParams }) {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
-            {game.achievements.map((a) => (
+            {game.achievements.map((achievement) => (
               <div
-                key={a.id}
-                title={a.name}
+                key={achievement.id}
+                title={achievement.name}
                 className={cn(
                   'flex flex-col items-center gap-1 rounded-lg border p-3 text-center',
-                  a.earned ? 'bg-muted/50' : 'opacity-40'
+                  achievement.earned ? 'bg-muted/50' : 'opacity-40'
                 )}
               >
-                <span className="text-2xl leading-none">{a.earned ? a.icon : '🔒'}</span>
-                <span className="text-muted-foreground text-[0.7rem] font-medium">{a.name}</span>
+                <span className="text-2xl leading-none">
+                  {achievement.earned ? achievement.icon : '🔒'}
+                </span>
+                <span className="text-muted-foreground text-[0.7rem] font-medium">
+                  {achievement.name}
+                </span>
               </div>
             ))}
           </div>
         </CardContent>
       </Card>
 
-      {!d?.healthConnected && (
+      {!details?.healthConnected && (
         <a href="/auth/google/health" className={cn(buttonVariants(), 'w-full')}>
           Connect Google Health
         </a>

@@ -32,7 +32,7 @@ export async function GET(request) {
   }
 
   // Exchange the code for Google Health tokens.
-  const res = await fetch('https://oauth2.googleapis.com/token', {
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -44,10 +44,10 @@ export async function GET(request) {
     }),
   })
 
-  if (!res.ok) {
+  if (!tokenResponse.ok) {
     return NextResponse.redirect(`${origin}/profile?health=connect_failed`)
   }
-  const token = await res.json()
+  const token = await tokenResponse.json()
 
   const expiresAt = new Date(Date.now() + (token.expires_in ?? 3600) * 1000).toISOString()
   await supabase

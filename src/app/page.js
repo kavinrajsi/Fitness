@@ -74,12 +74,12 @@ export default async function Home() {
       <section className="mt-16 space-y-6">
         <h2 className="text-2xl font-semibold tracking-tight text-foreground">What you get</h2>
         <div className="grid sm:grid-cols-2 gap-4">
-          {FEATURES.map((f) => (
-            <Card key={f.title}>
+          {FEATURES.map((feature) => (
+            <Card key={feature.title}>
               <CardHeader>
-                <CardTitle>{f.title}</CardTitle>
+                <CardTitle>{feature.title}</CardTitle>
               </CardHeader>
-              <CardContent className="text-muted-foreground leading-7">{f.body}</CardContent>
+              <CardContent className="text-muted-foreground leading-7">{feature.body}</CardContent>
             </Card>
           ))}
         </div>
@@ -88,12 +88,12 @@ export default async function Home() {
       <section className="mt-16 space-y-6">
         <h2 className="text-2xl font-semibold tracking-tight text-foreground">What we believe</h2>
         <div className="grid sm:grid-cols-2 gap-4">
-          {PRINCIPLES.map((p) => (
-            <Card key={p.title}>
+          {PRINCIPLES.map((principle) => (
+            <Card key={principle.title}>
               <CardHeader>
-                <CardTitle>{p.title}</CardTitle>
+                <CardTitle>{principle.title}</CardTitle>
               </CardHeader>
-              <CardContent className="text-muted-foreground leading-7">{p.body}</CardContent>
+              <CardContent className="text-muted-foreground leading-7">{principle.body}</CardContent>
             </Card>
           ))}
         </div>
