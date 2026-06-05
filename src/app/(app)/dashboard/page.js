@@ -225,7 +225,7 @@ export default async function DashboardPage({ searchParams }) {
             value={hydrationMl != null ? `${(hydrationMl / 1000).toFixed(1)} L` : '—'}
             icon={<DropletIcon className="size-4" />}
             foot="Water intake"
-            note={hydrationMl != null ? 'Most recent day' : 'Reconnect to enable'}
+            note={hydrationMl != null ? 'Most recent day' : 'No data yet'}
           />
           <Metric
             label="Total calories"
