@@ -79,7 +79,7 @@ export default async function AdminUserPage({ params }) {
         .order('date', { ascending: false }),
       service
         .from('workouts')
-        .select('source_id, started_at, type, duration_min, calories, distance_km')
+        .select('source_id, started_at, type, duration_min, calories, distance_km, steps, active_zone_minutes')
         .eq('user_id', userId)
         .order('started_at', { ascending: false }),
       service
@@ -279,6 +279,8 @@ export default async function AdminUserPage({ params }) {
                   <TableHead className="text-right">Duration</TableHead>
                   <TableHead className="text-right">Cal</TableHead>
                   <TableHead className="text-right">Km</TableHead>
+                  <TableHead className="text-right">Steps</TableHead>
+                  <TableHead className="text-right">AZM</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -293,6 +295,8 @@ export default async function AdminUserPage({ params }) {
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{dash(workout.calories)}</TableCell>
                     <TableCell className="text-right tabular-nums">{dash(workout.distance_km)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{dash(workout.steps)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{dash(workout.active_zone_minutes)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
