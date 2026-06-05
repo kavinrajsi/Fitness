@@ -38,7 +38,7 @@ const PERIODS = [
 
 export default async function LeaderboardPage({ searchParams }) {
   const { period: periodParam } = await searchParams
-  const period = PERIODS.find((p) => p.key === periodParam) ?? PERIODS[1] // default 7D
+  const period = PERIODS.find((option) => option.key === periodParam) ?? PERIODS[1] // default 7D
 
   const supabase = await createClient()
   const {
@@ -62,22 +62,22 @@ export default async function LeaderboardPage({ searchParams }) {
   ])
 
   const stepsByUser = {}
-  for (const m of metrics ?? []) {
-    stepsByUser[m.user_id] = (stepsByUser[m.user_id] ?? 0) + (m.steps ?? 0)
+  for (const metric of metrics ?? []) {
+    stepsByUser[metric.user_id] = (stepsByUser[metric.user_id] ?? 0) + (metric.steps ?? 0)
   }
 
   const ranked = (profiles ?? [])
-    .map((p) => ({
-      id: p.id,
-      name: p.full_name ?? 'Anonymous',
-      avatar: p.avatar_url,
-      steps: stepsByUser[p.id] ?? 0,
+    .map((profile) => ({
+      id: profile.id,
+      name: profile.full_name ?? 'Anonymous',
+      avatar: profile.avatar_url,
+      steps: stepsByUser[profile.id] ?? 0,
     }))
-    .sort((a, b) => b.steps - a.steps)
-    .map((row, i) => ({ ...row, rank: i + 1 }))
+    .sort((first, second) => second.steps - first.steps)
+    .map((entry, i) => ({ ...entry, rank: i + 1 }))
 
-  const shown = ranked.filter((r) => r.steps > 0 || r.id === user.id)
-  const anySteps = ranked.some((r) => r.steps > 0)
+  const shown = ranked.filter((entry) => entry.steps > 0 || entry.id === user.id)
+  const anySteps = ranked.some((entry) => entry.steps > 0)
 
   return (
     <Card className="mx-auto w-full max-w-2xl">
@@ -88,12 +88,12 @@ export default async function LeaderboardPage({ searchParams }) {
 
       <CardContent>
         <div className="inline-flex items-center gap-1 rounded-lg bg-muted p-1">
-          {PERIODS.map((p) => {
-            const active = p.key === period.key
+          {PERIODS.map((option) => {
+            const active = option.key === period.key
             return (
               <a
-                key={p.key}
-                href={`/leaderboard?period=${p.key}`}
+                key={option.key}
+                href={`/leaderboard?period=${option.key}`}
                 className={cn(
                   'rounded-md px-3 py-1 text-sm font-medium transition-colors',
                   active
@@ -101,7 +101,7 @@ export default async function LeaderboardPage({ searchParams }) {
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                {p.label}
+                {option.label}
               </a>
             )
           })}
@@ -126,29 +126,29 @@ export default async function LeaderboardPage({ searchParams }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {shown.map((r) => {
-                const isYou = r.id === user.id
+              {shown.map((entry) => {
+                const isYou = entry.id === user.id
                 return (
-                  <TableRow key={r.id} className={cn(isYou && 'bg-muted/50')}>
+                  <TableRow key={entry.id} className={cn(isYou && 'bg-muted/50')}>
                     <TableCell className="pl-4 text-center font-medium text-muted-foreground tabular-nums">
-                      {r.rank}
+                      {entry.rank}
                     </TableCell>
                     <TableCell>
                       <Avatar size="sm">
-                        {r.avatar ? <AvatarImage src={r.avatar} alt="" /> : null}
+                        {entry.avatar ? <AvatarImage src={entry.avatar} alt="" /> : null}
                         <AvatarFallback>
-                          {(r.name?.[0] ?? '?').toUpperCase()}
+                          {(entry.name?.[0] ?? '?').toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                     </TableCell>
                     <TableCell className="font-medium">
-                      {r.name}
+                      {entry.name}
                       {isYou && (
                         <span className="text-muted-foreground"> (you)</span>
                       )}
                     </TableCell>
                     <TableCell className="pr-4 text-right tabular-nums">
-                      {r.steps.toLocaleString()}
+                      {entry.steps.toLocaleString()}
                     </TableCell>
                   </TableRow>
                 )

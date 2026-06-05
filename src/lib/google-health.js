@@ -34,7 +34,7 @@ function civil(dateStr) {
 }
 
 async function dailyRollUp(token, dataType, startDate, endDate) {
-  const res = await fetch(`${HEALTH_API}/${dataType}/dataPoints:dailyRollUp`, {
+  const response = await fetch(`${HEALTH_API}/${dataType}/dataPoints:dailyRollUp`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -43,19 +43,19 @@ async function dailyRollUp(token, dataType, startDate, endDate) {
     }),
     cache: 'no-store',
   })
-  if (!res.ok) return null
-  return res.json()
+  if (!response.ok) return null
+  return response.json()
 }
 
 // GET list of individual data points for a data type (used where dailyRollUp is
 // unsupported, e.g. height).
 async function listPoints(token, dataType, pageSize = 50) {
-  const res = await fetch(`${HEALTH_API}/${dataType}/dataPoints?pageSize=${pageSize}`, {
+  const response = await fetch(`${HEALTH_API}/${dataType}/dataPoints?pageSize=${pageSize}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: 'no-store',
   })
-  if (!res.ok) return null
-  return res.json()
+  if (!response.ok) return null
+  return response.json()
 }
 
 /**
@@ -73,24 +73,24 @@ export async function getBodyMetrics(token) {
   // Weight: most recent daily-average reading (grams → kg).
   let latestWeightG = null
   let latestWeightKey = ''
-  for (const pt of weightData?.rollupDataPoints ?? []) {
-    const g = pt.weight?.weightGramsAvg
-    const key = pointDate(pt) ?? ''
-    if (g != null && key >= latestWeightKey) {
-      latestWeightG = g
-      latestWeightKey = key
+  for (const point of weightData?.rollupDataPoints ?? []) {
+    const weightGrams = point.weight?.weightGramsAvg
+    const dateKey = pointDate(point) ?? ''
+    if (weightGrams != null && dateKey >= latestWeightKey) {
+      latestWeightG = weightGrams
+      latestWeightKey = dateKey
     }
   }
 
   // Height: most recent data point by sample time (mm → cm).
   let latestHeightMm = null
   let latestHeightTime = ''
-  for (const pt of heightData?.dataPoints ?? []) {
-    const mm = pt.height?.heightMillimeters
-    const t = pt.height?.sampleTime?.physicalTime ?? ''
-    if (mm != null && t >= latestHeightTime) {
-      latestHeightMm = Number(mm)
-      latestHeightTime = t
+  for (const point of heightData?.dataPoints ?? []) {
+    const heightMm = point.height?.heightMillimeters
+    const sampleTime = point.height?.sampleTime?.physicalTime ?? ''
+    if (heightMm != null && sampleTime >= latestHeightTime) {
+      latestHeightMm = Number(heightMm)
+      latestHeightTime = sampleTime
     }
   }
 
@@ -105,12 +105,12 @@ export async function getBodyMetrics(token) {
  * (non-Fitbit accounts). GET /v4/users/me/profile (scope googlehealth.profile.readonly).
  */
 export async function getHealthProfile(token) {
-  const res = await fetch('https://health.googleapis.com/v4/users/me/profile', {
+  const response = await fetch('https://health.googleapis.com/v4/users/me/profile', {
     headers: { Authorization: `Bearer ${token}` },
     cache: 'no-store',
   })
-  if (!res.ok) return null
-  const data = await res.json()
+  if (!response.ok) return null
+  const data = await response.json()
   return { age: data.age ?? null }
 }
 
@@ -119,23 +119,23 @@ export async function getHealthProfile(token) {
  * used to map inbound webhook notifications back to our user. Returns null on failure.
  */
 export async function getHealthUserId(token) {
-  const res = await fetch('https://health.googleapis.com/v4/users/me/identity', {
+  const response = await fetch('https://health.googleapis.com/v4/users/me/identity', {
     headers: { Authorization: `Bearer ${token}` },
     cache: 'no-store',
   })
-  if (!res.ok) return null
-  const data = await res.json()
+  if (!response.ok) return null
+  const data = await response.json()
   return data.healthUserId ?? null
 }
 
 // Extract a YYYY-MM-DD key from a rollup point's civilStartTime ({date}) or
 // startTime (string), depending on which the API returns.
-function pointDate(pt) {
-  const c = pt?.civilStartTime?.date ?? pt?.civilStartTime
-  if (c?.year != null) {
-    return `${c.year}-${String(c.month).padStart(2, '0')}-${String(c.day).padStart(2, '0')}`
+function pointDate(point) {
+  const civilDate = point?.civilStartTime?.date ?? point?.civilStartTime
+  if (civilDate?.year != null) {
+    return `${civilDate.year}-${String(civilDate.month).padStart(2, '0')}-${String(civilDate.day).padStart(2, '0')}`
   }
-  if (typeof pt?.startTime === 'string') return pt.startTime.slice(0, 10)
+  if (typeof point?.startTime === 'string') return point.startTime.slice(0, 10)
   return null
 }
 
@@ -157,9 +157,9 @@ export async function getDailySteps(token, days = 90) {
 
   // Map any returned rollups by date. The steps rollup value is { steps: { countSum } }.
   const byDate = {}
-  for (const pt of data.rollupDataPoints ?? []) {
-    const key = pointDate(pt)
-    if (key) byDate[key] = Number(pt.steps?.countSum ?? 0)
+  for (const point of data.rollupDataPoints ?? []) {
+    const dateKey = pointDate(point)
+    if (dateKey) byDate[dateKey] = Number(point.steps?.countSum ?? 0)
   }
 
   // Build the full series, newest day first.
@@ -222,9 +222,9 @@ export async function getDailyMetrics(token, days = 90) {
   ])
 
   const byDate = {}
-  const row = (k) =>
-    (byDate[k] ??= {
-      date: k,
+  const row = (dateKey) =>
+    (byDate[dateKey] ??= {
+      date: dateKey,
       steps: 0,
       calories: 0,
       distance_km: 0,
@@ -242,88 +242,88 @@ export async function getDailyMetrics(token, days = 90) {
       ? `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`
       : null
 
-  for (const pt of stepsD?.rollupDataPoints ?? []) {
-    const k = pointDate(pt)
-    if (k) row(k).steps = Number(pt.steps?.countSum ?? 0)
+  for (const point of stepsD?.rollupDataPoints ?? []) {
+    const dateKey = pointDate(point)
+    if (dateKey) row(dateKey).steps = Number(point.steps?.countSum ?? 0)
   }
-  for (const pt of calD?.rollupDataPoints ?? []) {
-    const k = pointDate(pt)
-    if (k) row(k).calories = Math.round(Number(pt.activeEnergyBurned?.kcalSum ?? 0))
+  for (const point of calD?.rollupDataPoints ?? []) {
+    const dateKey = pointDate(point)
+    if (dateKey) row(dateKey).calories = Math.round(Number(point.activeEnergyBurned?.kcalSum ?? 0))
   }
-  for (const pt of distD?.rollupDataPoints ?? []) {
-    const k = pointDate(pt)
-    if (k) row(k).distance_km = Math.round((Number(pt.distance?.millimetersSum ?? 0) / 1e6) * 100) / 100
+  for (const point of distD?.rollupDataPoints ?? []) {
+    const dateKey = pointDate(point)
+    if (dateKey) row(dateKey).distance_km = Math.round((Number(point.distance?.millimetersSum ?? 0) / 1e6) * 100) / 100
   }
   // Resting heart rate — the dedicated daily type (real RHR, not a proxy). List only;
   // value at dailyRestingHeartRate.beatsPerMinute, keyed by its civil date.
-  for (const pt of rhrD?.dataPoints ?? []) {
-    const v = pt.dailyRestingHeartRate
-    if (v?.beatsPerMinute == null || !v.date?.year || Number(v.date.year) < 2000) continue
-    const k = `${v.date.year}-${String(v.date.month).padStart(2, '0')}-${String(v.date.day).padStart(2, '0')}`
-    row(k).resting_hr = Math.round(Number(v.beatsPerMinute))
+  for (const point of rhrD?.dataPoints ?? []) {
+    const restingHeartRate = point.dailyRestingHeartRate
+    if (restingHeartRate?.beatsPerMinute == null || !restingHeartRate.date?.year || Number(restingHeartRate.date.year) < 2000) continue
+    const dateKey = `${restingHeartRate.date.year}-${String(restingHeartRate.date.month).padStart(2, '0')}-${String(restingHeartRate.date.day).padStart(2, '0')}`
+    row(dateKey).resting_hr = Math.round(Number(restingHeartRate.beatsPerMinute))
   }
 
   // Sleep sessions → minutes per night, keyed by the IST date the user woke up.
-  for (const pt of sleepD?.dataPoints ?? []) {
-    const iv = pt.sleep?.interval
-    const startT = iv?.startTime ?? iv?.start_time
-    const endT = iv?.endTime ?? iv?.end_time
-    if (!startT || !endT) continue
-    const mins = Math.round((new Date(endT).getTime() - new Date(startT).getTime()) / 60000)
-    if (!(mins > 0)) continue
-    const k = new Date(new Date(endT).getTime() + IST_OFFSET_MS).toISOString().slice(0, 10)
-    const r = row(k)
-    r.sleep_min = (r.sleep_min ?? 0) + mins
+  for (const point of sleepD?.dataPoints ?? []) {
+    const interval = point.sleep?.interval
+    const startTime = interval?.startTime ?? interval?.start_time
+    const endTime = interval?.endTime ?? interval?.end_time
+    if (!startTime || !endTime) continue
+    const minutes = Math.round((new Date(endTime).getTime() - new Date(startTime).getTime()) / 60000)
+    if (!(minutes > 0)) continue
+    const dateKey = new Date(new Date(endTime).getTime() + IST_OFFSET_MS).toISOString().slice(0, 10)
+    const dayRow = row(dateKey)
+    dayRow.sleep_min = (dayRow.sleep_min ?? 0) + minutes
   }
 
   // Hydration (nutrition scope) — sum logged volume per day → ml. Session type; the
   // volume/date field shape is parsed defensively, pending real-data confirmation.
-  for (const pt of hydD?.dataPoints ?? []) {
-    const h = pt.hydrationLog
-    if (!h) continue
-    const ml = Number(h.volumeMilliliters ?? h.milliliters ?? h.volume ?? 0)
-    if (!(ml > 0)) continue
-    const t = h.interval?.endTime ?? h.interval?.startTime ?? h.sampleTime?.physicalTime
-    const k = t ? new Date(new Date(t).getTime() + IST_OFFSET_MS).toISOString().slice(0, 10) : null
-    if (!k) continue
-    const r = row(k)
-    r.hydration_ml = (r.hydration_ml ?? 0) + ml
+  for (const point of hydD?.dataPoints ?? []) {
+    const hydrationLog = point.hydrationLog
+    if (!hydrationLog) continue
+    const milliliters = Number(hydrationLog.volumeMilliliters ?? hydrationLog.milliliters ?? hydrationLog.volume ?? 0)
+    if (!(milliliters > 0)) continue
+    const time = hydrationLog.interval?.endTime ?? hydrationLog.interval?.startTime ?? hydrationLog.sampleTime?.physicalTime
+    const dateKey = time ? new Date(new Date(time).getTime() + IST_OFFSET_MS).toISOString().slice(0, 10) : null
+    if (!dateKey) continue
+    const dayRow = row(dateKey)
+    dayRow.hydration_ml = (dayRow.hydration_ml ?? 0) + milliliters
   }
 
   // Active minutes — sum the per-activity-level minutes for each (civil) day.
-  for (const pt of amD?.dataPoints ?? []) {
-    const am = pt.activeMinutes
-    const k = civilKey(am?.interval?.civilStartTime?.date)
-    if (!k) continue
-    let mins = 0
-    for (const lvl of am.activeMinutesByActivityLevel ?? []) mins += Number(lvl.activeMinutes ?? 0)
-    if (mins > 0) row(k).active_min = (row(k).active_min ?? 0) + mins
+  for (const point of amD?.dataPoints ?? []) {
+    const activeMinutes = point.activeMinutes
+    const dateKey = civilKey(activeMinutes?.interval?.civilStartTime?.date)
+    if (!dateKey) continue
+    let minutes = 0
+    for (const level of activeMinutes.activeMinutesByActivityLevel ?? []) minutes += Number(level.activeMinutes ?? 0)
+    if (minutes > 0) row(dateKey).active_min = (row(dateKey).active_min ?? 0) + minutes
   }
 
   // VO2 max — daily cardio-fitness value.
-  for (const pt of vo2D?.dataPoints ?? []) {
-    const v = pt.dailyVo2Max
-    const k = civilKey(v?.date)
-    if (k && v.vo2Max != null) row(k).vo2_max = Math.round(Number(v.vo2Max) * 10) / 10
+  for (const point of vo2D?.dataPoints ?? []) {
+    const vo2Max = point.dailyVo2Max
+    const dateKey = civilKey(vo2Max?.date)
+    if (dateKey && vo2Max.vo2Max != null) row(dateKey).vo2_max = Math.round(Number(vo2Max.vo2Max) * 10) / 10
   }
 
   // SpO2 (defensive — no data in test account; field name unverified).
-  for (const pt of spo2D?.dataPoints ?? []) {
-    const s = pt.dailyOxygenSaturation
-    const k = civilKey(s?.date)
-    const v = s?.averagePercentage ?? s?.percentage ?? s?.avgPercentage
-    if (k && v != null) row(k).spo2 = Math.round(Number(v) * 10) / 10
+  for (const point of spo2D?.dataPoints ?? []) {
+    const oxygenSaturation = point.dailyOxygenSaturation
+    const dateKey = civilKey(oxygenSaturation?.date)
+    const percentage = oxygenSaturation?.averagePercentage ?? oxygenSaturation?.percentage ?? oxygenSaturation?.avgPercentage
+    if (dateKey && percentage != null) row(dateKey).spo2 = Math.round(Number(percentage) * 10) / 10
   }
 
   // HRV (defensive — no data in test account; field name unverified).
-  for (const pt of hrvD?.dataPoints ?? []) {
-    const h = pt.dailyHeartRateVariability
-    const k = civilKey(h?.date)
-    const v = h?.heartRateVariabilityMillis ?? h?.hrvMillis ?? h?.millis ?? h?.rmssd
-    if (k && v != null) row(k).hrv_ms = Math.round(Number(v) * 10) / 10
+  for (const point of hrvD?.dataPoints ?? []) {
+    const heartRateVariability = point.dailyHeartRateVariability
+    const dateKey = civilKey(heartRateVariability?.date)
+    const hrvMs = heartRateVariability?.heartRateVariabilityMillis ?? heartRateVariability?.hrvMillis ?? heartRateVariability?.millis ?? heartRateVariability?.rmssd
+    if (dateKey && hrvMs != null) row(dateKey).hrv_ms = Math.round(Number(hrvMs) * 10) / 10
   }
 
-  return Object.values(byDate).sort((a, b) => b.date.localeCompare(a.date))
+  return Object.values(byDate).sort((rowA, rowB) => rowB.date.localeCompare(rowA.date))
 }
 
 // Sleep sessions for the last `days` days (sleep doesn't support dailyRollUp).
@@ -332,18 +332,18 @@ async function listSleep(token, days) {
   const since = isoDate(-(days - 1))
   const params = new URLSearchParams({ pageSize: '200' })
   params.set('filter', `sleep.interval.end_time >= "${since}T00:00:00Z"`)
-  const res = await fetch(`${HEALTH_API}/sleep/dataPoints?${params}`, {
+  const response = await fetch(`${HEALTH_API}/sleep/dataPoints?${params}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: 'no-store',
   })
-  if (!res.ok) return null
-  return res.json()
+  if (!response.ok) return null
+  return response.json()
 }
 
-function titleCase(s) {
-  return s
-    ? s.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-    : s
+function titleCase(text) {
+  return text
+    ? text.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+    : text
 }
 
 /**
@@ -357,33 +357,33 @@ export async function getWorkouts(token, days = 90) {
   if (!data) return []
 
   const cutoff = Date.now() - days * 86400000
-  const out = []
-  for (const pt of data.dataPoints ?? []) {
-    const e = pt.exercise
-    const start = e?.interval?.startTime
+  const workouts = []
+  for (const point of data.dataPoints ?? []) {
+    const exercise = point.exercise
+    const start = exercise?.interval?.startTime
     if (!start || new Date(start).getTime() < cutoff) continue
-    const id = (pt.name ?? '').split('/').pop()
+    const id = (point.name ?? '').split('/').pop()
     if (!id) continue
 
-    const end = e.interval?.endTime ?? null
-    const durSec = e.activeDuration
-      ? parseFloat(e.activeDuration)
+    const end = exercise.interval?.endTime ?? null
+    const durationSec = exercise.activeDuration
+      ? parseFloat(exercise.activeDuration)
       : end
         ? (new Date(end).getTime() - new Date(start).getTime()) / 1000
         : 0
-    const m = e.metricsSummary ?? {}
-    out.push({
+    const metricsSummary = exercise.metricsSummary ?? {}
+    workouts.push({
       source_id: id,
       started_at: start,
       ended_at: end,
-      type: e.displayName ?? titleCase(e.exerciseType) ?? 'Workout',
-      duration_min: durSec ? Math.round(durSec / 60) : null,
-      calories: m.caloriesKcal != null ? Math.round(Number(m.caloriesKcal)) : null,
+      type: exercise.displayName ?? titleCase(exercise.exerciseType) ?? 'Workout',
+      duration_min: durationSec ? Math.round(durationSec / 60) : null,
+      calories: metricsSummary.caloriesKcal != null ? Math.round(Number(metricsSummary.caloriesKcal)) : null,
       distance_km:
-        m.distanceMillimeters != null
-          ? Math.round((Number(m.distanceMillimeters) / 1e6) * 100) / 100
+        metricsSummary.distanceMillimeters != null
+          ? Math.round((Number(metricsSummary.distanceMillimeters) / 1e6) * 100) / 100
           : null,
     })
   }
-  return out
+  return workouts
 }

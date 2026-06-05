@@ -9,7 +9,7 @@
 import { createClient } from '@/lib/supabase/server'
 
 export async function refreshGoogleToken(refreshToken) {
-  const res = await fetch('https://oauth2.googleapis.com/token', {
+  const response = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -19,8 +19,8 @@ export async function refreshGoogleToken(refreshToken) {
       refresh_token: refreshToken,
     }),
   })
-  if (!res.ok) return null
-  const data = await res.json()
+  if (!response.ok) return null
+  const data = await response.json()
   return data.access_token ? data : null
 }
 
@@ -35,7 +35,7 @@ export async function refreshGoogleToken(refreshToken) {
 async function getValidToken(profile, kind, client) {
   if (!profile) return null
 
-  const cols =
+  const tokenColumns =
     kind === 'health'
       ? {
           access: 'google_health_access_token',
@@ -49,12 +49,12 @@ async function getValidToken(profile, kind, client) {
         }
 
   const expired =
-    !profile[cols.expires] || new Date(profile[cols.expires]) <= new Date()
+    !profile[tokenColumns.expires] || new Date(profile[tokenColumns.expires]) <= new Date()
 
-  if (!expired && profile[cols.access]) return profile[cols.access]
-  if (!profile[cols.refresh]) return null
+  if (!expired && profile[tokenColumns.access]) return profile[tokenColumns.access]
+  if (!profile[tokenColumns.refresh]) return null
 
-  const refreshed = await refreshGoogleToken(profile[cols.refresh])
+  const refreshed = await refreshGoogleToken(profile[tokenColumns.refresh])
   if (!refreshed) return null
 
   const accessToken = refreshed.access_token
@@ -65,7 +65,7 @@ async function getValidToken(profile, kind, client) {
   const supabase = client ?? (await createClient())
   await supabase
     .from('profiles')
-    .update({ [cols.access]: accessToken, [cols.expires]: expiresAt })
+    .update({ [tokenColumns.access]: accessToken, [tokenColumns.expires]: expiresAt })
     .eq('id', profile.id)
 
   return accessToken

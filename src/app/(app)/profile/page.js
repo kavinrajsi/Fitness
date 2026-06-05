@@ -35,21 +35,21 @@ export default async function ProfilePage({ searchParams }) {
     .maybeSingle()
   const goal = profile?.daily_step_goal ?? 10000
 
-  const d = await getUserDetails()
-  const name = d?.name ?? 'there'
-  const initial = (name?.[0] ?? d?.email?.[0] ?? '?').toUpperCase()
+  const details = await getUserDetails()
+  const name = details?.name ?? 'there'
+  const initial = (name?.[0] ?? details?.email?.[0] ?? '?').toUpperCase()
 
   return (
     <div className="mx-auto w-full max-w-md space-y-6 px-4 py-8">
       <div className="flex items-center gap-4">
         <Avatar size="lg">
-          {d?.avatar ? <AvatarImage src={d.avatar} alt="" /> : null}
+          {details?.avatar ? <AvatarImage src={details.avatar} alt="" /> : null}
           <AvatarFallback>{initial}</AvatarFallback>
         </Avatar>
         <div className="min-w-0">
           <h1 className="truncate font-semibold">{name}</h1>
-          {d?.email && (
-            <p className="truncate text-sm text-muted-foreground">{d.email}</p>
+          {details?.email && (
+            <p className="truncate text-sm text-muted-foreground">{details.email}</p>
           )}
         </div>
       </div>
@@ -60,12 +60,15 @@ export default async function ProfilePage({ searchParams }) {
           <CardDescription>From Google Health and your account</CardDescription>
         </CardHeader>
         <CardContent className="space-y-0">
-          <Detail label="Height" value={d?.heightCm != null ? `${d.heightCm} cm` : null} />
-          <Detail label="Weight" value={d?.weightKg != null ? `${d.weightKg} kg` : null} />
-          <Detail label="BMI" value={d?.bmi != null ? `${d.bmi} (${d.bmiCategory})` : null} />
-          <Detail label="Age" value={d?.age != null ? `${d.age}` : null} />
-          <Detail label="Gender" value={d?.gender} />
-          <Detail label="Birthday" value={d?.birthday} last />
+          <Detail label="Height" value={details?.heightCm != null ? `${details.heightCm} cm` : null} />
+          <Detail label="Weight" value={details?.weightKg != null ? `${details.weightKg} kg` : null} />
+          <Detail
+            label="BMI"
+            value={details?.bmi != null ? `${details.bmi} (${details.bmiCategory})` : null}
+          />
+          <Detail label="Age" value={details?.age != null ? `${details.age}` : null} />
+          <Detail label="Gender" value={details?.gender} />
+          <Detail label="Birthday" value={details?.birthday} last />
         </CardContent>
       </Card>
 
@@ -88,7 +91,7 @@ export default async function ProfilePage({ searchParams }) {
             className="w-full"
             render={<a href="/auth/google/health" />}
           >
-            {d?.healthConnected ? 'Reconnect Google Health' : 'Connect Google Health'}
+            {details?.healthConnected ? 'Reconnect Google Health' : 'Connect Google Health'}
           </Button>
         </CardContent>
       </Card>

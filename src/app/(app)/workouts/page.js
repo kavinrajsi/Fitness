@@ -67,18 +67,18 @@ export default async function WorkoutsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {list.map((w) => (
-                <TableRow key={w.source_id}>
-                  <TableCell className="font-medium">{w.type ?? 'Workout'}</TableCell>
-                  <TableCell className="text-muted-foreground">{fmtDate(w.started_at)}</TableCell>
+              {list.map((workout) => (
+                <TableRow key={workout.source_id}>
+                  <TableCell className="font-medium">{workout.type ?? 'Workout'}</TableCell>
+                  <TableCell className="text-muted-foreground">{fmtDate(workout.started_at)}</TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {w.duration_min != null ? `${w.duration_min} min` : '—'}
+                    {workout.duration_min != null ? `${workout.duration_min} min` : '—'}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {w.calories != null ? w.calories : '—'}
+                    {workout.calories != null ? workout.calories : '—'}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {w.distance_km != null ? `${w.distance_km} km` : '—'}
+                    {workout.distance_km != null ? `${workout.distance_km} km` : '—'}
                   </TableCell>
                 </TableRow>
               ))}
