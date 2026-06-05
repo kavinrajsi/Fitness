@@ -3,6 +3,7 @@
  * a 404 (notFound). Not indexed by search engines (robots: noindex). Reads ALL users'
  * data with the service-role client (bypasses RLS) for an aggregate, detailed view.
  */
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
@@ -149,8 +150,12 @@ export default async function AdminPage() {
                   return (
                     <TableRow key={p.id}>
                       <TableCell className="max-w-[14rem]">
-                        <div className="font-medium">{p.full_name ?? '—'}</div>
-                        <div className="text-muted-foreground truncate text-xs">{p.email}</div>
+                        <Link href={`/admin/${p.id}`} className="group block">
+                          <div className="font-medium group-hover:underline">
+                            {p.full_name ?? '—'}
+                          </div>
+                          <div className="text-muted-foreground truncate text-xs">{p.email}</div>
+                        </Link>
                       </TableCell>
                       <TableCell>
                         {p.google_health_refresh_token ? (
