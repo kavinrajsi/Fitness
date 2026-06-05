@@ -9,6 +9,10 @@ import {
   FlameIcon,
   HeartPulseIcon,
   DropletIcon,
+  ActivityIcon,
+  GaugeIcon,
+  WindIcon,
+  HeartIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getUserDetails } from '@/lib/get-user-details'
@@ -53,7 +57,7 @@ export default async function DashboardPage({ searchParams }) {
     supabase.from('profiles').select('daily_step_goal').eq('id', user.id).maybeSingle(),
     supabase
       .from('daily_metrics')
-      .select('date, steps, resting_hr, hydration_ml')
+      .select('date, steps, active_min, resting_hr, hydration_ml, vo2_max, spo2, hrv_ms')
       .eq('user_id', user.id),
     getUserDetails(),
   ])
@@ -74,19 +78,19 @@ export default async function DashboardPage({ searchParams }) {
   const prev7 = sum(7, 13)
   const avg7 = Math.round(last7 / 7)
 
-  // Latest resting heart rate, and today's hydration (sparse — show most recent).
-  const rhrByDate = {}
-  const hydByDate = {}
-  for (const r of rows ?? []) {
-    if (r.resting_hr != null) rhrByDate[r.date] = r.resting_hr
-    if (r.hydration_ml != null) hydByDate[r.date] = r.hydration_ml
+  // Most-recent value for sparse daily metrics (these aren't recorded every day).
+  const latest = (field) => {
+    const byField = {}
+    for (const r of rows ?? []) if (r[field] != null) byField[r.date] = r[field]
+    for (let i = 0; i < 90; i++) if (byField[dkey(i)] != null) return byField[dkey(i)]
+    return null
   }
-  let restingHr = null
-  let hydrationMl = null
-  for (let i = 0; i < 90; i++) {
-    if (restingHr == null && rhrByDate[dkey(i)] != null) restingHr = rhrByDate[dkey(i)]
-    if (hydrationMl == null && hydByDate[dkey(i)] != null) hydrationMl = hydByDate[dkey(i)]
-  }
+  const restingHr = latest('resting_hr')
+  const hydrationMl = latest('hydration_ml')
+  const vo2Max = latest('vo2_max')
+  const spo2 = latest('spo2')
+  const hrv = latest('hrv_ms')
+  const activeMin = (rows ?? []).find((r) => r.date === dkey(0))?.active_min ?? null
 
   const series = []
   let chartMax = 0
@@ -101,7 +105,7 @@ export default async function DashboardPage({ searchParams }) {
 
   return (
     <div className="flex flex-col gap-4 md:gap-6">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Metric
           label="Steps today"
           value={today.toLocaleString()}
@@ -130,20 +134,54 @@ export default async function DashboardPage({ searchParams }) {
           foot={`${today.toLocaleString()} / ${goal.toLocaleString()}`}
           note="Daily step goal"
         />
-        <Metric
-          label="Resting HR"
-          value={restingHr != null ? `${restingHr} bpm` : '—'}
-          icon={<HeartPulseIcon className="size-4" />}
-          foot="Resting heart rate"
-          note="Most recent"
-        />
-        <Metric
-          label="Hydration"
-          value={hydrationMl != null ? `${(hydrationMl / 1000).toFixed(1)} L` : '—'}
-          icon={<DropletIcon className="size-4" />}
-          foot="Water intake"
-          note={hydrationMl != null ? 'Most recent day' : 'Reconnect to enable'}
-        />
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-sm font-medium">Health</h2>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+          <Metric
+            label="Active minutes"
+            value={activeMin != null ? `${activeMin} min` : '—'}
+            icon={<ActivityIcon className="size-4" />}
+            foot="Active time"
+            note="Today"
+          />
+          <Metric
+            label="Resting HR"
+            value={restingHr != null ? `${restingHr} bpm` : '—'}
+            icon={<HeartPulseIcon className="size-4" />}
+            foot="Resting heart rate"
+            note="Most recent"
+          />
+          <Metric
+            label="Cardio fitness"
+            value={vo2Max != null ? `${vo2Max}` : '—'}
+            icon={<GaugeIcon className="size-4" />}
+            foot="VO₂ max"
+            note="mL/kg/min"
+          />
+          <Metric
+            label="SpO₂"
+            value={spo2 != null ? `${spo2}%` : '—'}
+            icon={<WindIcon className="size-4" />}
+            foot="Blood oxygen"
+            note={spo2 != null ? 'Most recent' : 'No data yet'}
+          />
+          <Metric
+            label="HRV"
+            value={hrv != null ? `${hrv} ms` : '—'}
+            icon={<HeartIcon className="size-4" />}
+            foot="Heart rate variability"
+            note={hrv != null ? 'Most recent' : 'No data yet'}
+          />
+          <Metric
+            label="Hydration"
+            value={hydrationMl != null ? `${(hydrationMl / 1000).toFixed(1)} L` : '—'}
+            icon={<DropletIcon className="size-4" />}
+            foot="Water intake"
+            note={hydrationMl != null ? 'Most recent day' : 'Reconnect to enable'}
+          />
+        </div>
       </div>
 
       <Card>

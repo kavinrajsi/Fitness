@@ -7,7 +7,7 @@
  */
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Footprints, Trophy, User, LogOut } from 'lucide-react'
+import { LayoutDashboard, Footprints, Dumbbell, Trophy, User, LogOut } from 'lucide-react'
 import { signOut } from '@/app/actions/auth'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -26,6 +26,7 @@ import {
 const NAV = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/data', label: 'Steps', icon: Footprints },
+  { href: '/workouts', label: 'Workouts', icon: Dumbbell },
   { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
   { href: '/profile', label: 'Profile', icon: User },
 ]

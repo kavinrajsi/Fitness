@@ -7,7 +7,7 @@
  * webhook mapping). `onStep` is an optional progress callback for the streaming UI.
  */
 import { getValidHealthAccessToken } from '@/lib/google-auth'
-import { getDailyMetrics, getHealthUserId } from '@/lib/google-health'
+import { getDailyMetrics, getHealthUserId, getWorkouts } from '@/lib/google-health'
 
 export async function syncUserMetrics(service, profile, { days = 90, onStep } = {}) {
   const step = (s) => onStep?.(s)
@@ -39,5 +39,18 @@ export async function syncUserMetrics(service, profile, { days = 90, onStep } = 
     if (error) return { ok: false, reason: 'upsert_error', rows: 0, metrics }
   }
 
-  return { ok: true, rows: metrics.length, metrics }
+  // Workout sessions → workouts table (dedup on the source data-point id).
+  step('Fetching workouts')
+  const workouts = await getWorkouts(token, days)
+  if (workouts.length) {
+    const now = new Date().toISOString()
+    await service
+      .from('workouts')
+      .upsert(
+        workouts.map((w) => ({ user_id: profile.id, ...w, updated_at: now })),
+        { onConflict: 'user_id,source_id' }
+      )
+  }
+
+  return { ok: true, rows: metrics.length, metrics, workouts: workouts.length }
 }
