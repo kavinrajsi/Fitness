@@ -7,7 +7,15 @@
  */
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Footprints, Dumbbell, Trophy, User, LogOut } from 'lucide-react'
+import {
+  LayoutDashboard,
+  Footprints,
+  Dumbbell,
+  Trophy,
+  User,
+  Shield,
+  LogOut,
+} from 'lucide-react'
 import { signOut } from '@/app/actions/auth'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -31,10 +39,11 @@ const NAV = [
   { href: '/profile', label: 'Profile', icon: User },
 ]
 
-export function AppSidebar({ user, ...props }) {
+export function AppSidebar({ user, isAdmin = false, ...props }) {
   const pathname = usePathname()
   const { setOpenMobile } = useSidebar()
   const closeMobile = () => setOpenMobile(false)
+  const navItems = isAdmin ? [...NAV, { href: '/admin', label: 'Admin', icon: Shield }] : NAV
   return (
     <Sidebar {...props}>
       <SidebarHeader>
@@ -47,7 +56,7 @@ export function AppSidebar({ user, ...props }) {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {NAV.map((item) => {
+              {navItems.map((item) => {
                 const Icon = item.icon
                 return (
                   <SidebarMenuItem key={item.href}>
