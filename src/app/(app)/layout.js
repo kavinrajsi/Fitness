@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { ADMIN_EMAIL } from '@/lib/constants'
 import { AppSidebar } from '@/components/app-sidebar'
 import { SyncButton } from '@/components/sync-button'
+import { SwRegister } from '@/components/sw-register'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
 
@@ -35,6 +36,7 @@ export default async function AppLayout({ children }) {
 
   return (
     <SidebarProvider>
+      <SwRegister />
       <AppSidebar
         user={sidebarUser}
         isAdmin={user.email === ADMIN_EMAIL}
