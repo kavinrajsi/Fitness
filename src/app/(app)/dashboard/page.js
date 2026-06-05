@@ -31,6 +31,8 @@ import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { dkey } from '@/lib/date-utils'
+import { StepsAreaChart, HourlyStepsChart, MetricTrendChart } from '@/components/charts'
+import { GoalRing } from '@/components/goal-ring'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,16 +56,22 @@ export default async function DashboardPage({ searchParams }) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const [{ data: profile }, { data: dailyMetrics }, details] = await Promise.all([
-    supabase.from('profiles').select('daily_step_goal').eq('id', user.id).maybeSingle(),
-    supabase
-      .from('daily_metrics')
-      .select(
-        'date, steps, active_min, resting_hr, hydration_ml, vo2_max, spo2, hrv_ms, total_calories, hr_avg, hr_min, hr_max'
-      )
-      .eq('user_id', user.id),
-    getUserDetails(),
-  ])
+  const [{ data: profile }, { data: dailyMetrics }, { data: hourlyToday }, details] =
+    await Promise.all([
+      supabase.from('profiles').select('daily_step_goal').eq('id', user.id).maybeSingle(),
+      supabase
+        .from('daily_metrics')
+        .select(
+          'date, steps, active_min, resting_hr, hydration_ml, vo2_max, spo2, hrv_ms, total_calories, hr_avg, hr_min, hr_max, sleep_min'
+        )
+        .eq('user_id', user.id),
+      supabase
+        .from('steps_hourly')
+        .select('hour, steps')
+        .eq('user_id', user.id)
+        .eq('day', dkey(0)),
+      getUserDetails(),
+    ])
 
   const goal = profile?.daily_step_goal ?? 10000
   const game = computeGamification(dailyMetrics ?? [], goal)
@@ -101,15 +109,41 @@ export default async function DashboardPage({ searchParams }) {
     .find((metric) => metric.hr_avg != null)
 
   const series = []
-  let chartMax = 0
   let chartTotal = 0
   for (let i = range.days - 1; i >= 0; i--) {
     const steps = stepsByDate[dkey(i)] ?? 0
     chartTotal += steps
-    if (steps > chartMax) chartMax = steps
     series.push({ key: dkey(i), steps })
   }
   const chartAvg = Math.round(chartTotal / range.days)
+  const stepsSeries = series.map((point) => ({ date: point.key, steps: point.steps }))
+
+  // Intraday hourly steps for today (0–23).
+  const hourlyByHour = {}
+  for (const bucket of hourlyToday ?? []) hourlyByHour[bucket.hour] = bucket.steps
+  const hourlyData = Array.from({ length: 24 }, (_, hour) => ({
+    label: String(hour).padStart(2, '0'),
+    steps: hourlyByHour[hour] ?? 0,
+  }))
+  const hasHourly = (hourlyToday ?? []).length > 0
+
+  // Heart-rate and sleep trends over the selected range (gaps where no reading).
+  const hrByDate = {}
+  const sleepByDate = {}
+  for (const metric of dailyMetrics ?? []) {
+    const hrValue = metric.hr_avg ?? metric.resting_hr
+    if (hrValue != null) hrByDate[metric.date] = Math.round(hrValue)
+    if (metric.sleep_min != null) sleepByDate[metric.date] = metric.sleep_min
+  }
+  const hrSeries = []
+  const sleepSeries = []
+  for (let i = range.days - 1; i >= 0; i--) {
+    const date = dkey(i)
+    hrSeries.push({ date, hr: hrByDate[date] ?? null })
+    sleepSeries.push({ date, sleep: sleepByDate[date] ?? null })
+  }
+  const hasHr = hrSeries.some((point) => point.hr != null)
+  const hasSleep = sleepSeries.some((point) => point.sleep != null)
 
   return (
     <div className="flex flex-col gap-4 md:gap-6">
@@ -135,13 +169,17 @@ export default async function DashboardPage({ searchParams }) {
           foot={`Best: ${game.bestStreak} days`}
           note={`Goal ${goal.toLocaleString()}/day`}
         />
-        <Metric
-          label="Goal today"
-          value={`${Math.round(game.pct * 100)}%`}
-          progress={game.pct}
-          foot={`${today.toLocaleString()} / ${goal.toLocaleString()}`}
-          note="Daily step goal"
-        />
+        <Card className="items-center justify-center gap-0 py-4">
+          <GoalRing
+            pct={game.pct}
+            size={108}
+            stroke={10}
+            label={`${Math.round(game.pct * 100)}%`}
+          />
+          <span className="text-muted-foreground mt-2 text-xs">
+            {today.toLocaleString()} / {goal.toLocaleString()}
+          </span>
+        </Card>
       </div>
 
       <div>
@@ -236,20 +274,45 @@ export default async function DashboardPage({ searchParams }) {
           </CardAction>
         </CardHeader>
         <CardContent>
-          <div className="flex h-40 items-end gap-px">
-            {series.map((point) => (
-              <span
-                key={point.key}
-                className="bg-primary flex-1 rounded-t-sm"
-                style={{
-                  height: chartMax ? `${Math.max((point.steps / chartMax) * 100, 1.5)}%` : '1.5%',
-                }}
-                title={`${point.key}: ${point.steps.toLocaleString()}`}
-              />
-            ))}
-          </div>
+          <StepsAreaChart data={stepsSeries} />
         </CardContent>
       </Card>
+
+      {hasHourly && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Today by hour</CardTitle>
+            <CardDescription>Intraday steps</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <HourlyStepsChart data={hourlyData} />
+          </CardContent>
+        </Card>
+      )}
+
+      {hasHr && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Heart rate trend</CardTitle>
+            <CardDescription>Daily average bpm</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <MetricTrendChart data={hrSeries} dataKey="hr" label="Heart rate" color="var(--chart-2)" />
+          </CardContent>
+        </Card>
+      )}
+
+      {hasSleep && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Sleep trend</CardTitle>
+            <CardDescription>Minutes per night</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <MetricTrendChart data={sleepSeries} dataKey="sleep" label="Sleep" color="var(--chart-3)" />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
