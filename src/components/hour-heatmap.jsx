@@ -41,7 +41,7 @@ export function HourHeatmap({ grid, max }) {
         <div className="text-muted-foreground flex gap-0.5 pl-10 text-[0.65rem]">
           {Array.from({ length: 24 }, (_, hour) => (
             <span key={hour} className="flex-1 text-center">
-              {hour % 6 === 0 ? hour : ''}
+              {hour % 6 === 0 ? shortHour(hour) : ''}
             </span>
           ))}
         </div>
@@ -54,4 +54,9 @@ function formatHour(hour) {
   const period = hour < 12 ? 'AM' : 'PM'
   const display = hour % 12 === 0 ? 12 : hour % 12
   return `${display} ${period}`
+}
+
+// Compact 12-hour axis label, e.g. 0 → "12a", 6 → "6a", 12 → "12p", 18 → "6p".
+function shortHour(hour) {
+  return `${hour % 12 === 0 ? 12 : hour % 12}${hour < 12 ? 'a' : 'p'}`
 }
