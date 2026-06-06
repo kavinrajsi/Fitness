@@ -31,10 +31,10 @@ import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { dkey } from '@/lib/date-utils'
-import { StepsAreaChart, HourlyStepsChart, MetricTrendChart } from '@/components/charts'
-import Link from 'next/link'
+import { HourlyStepsChart, MetricTrendChart } from '@/components/charts'
 import { GoalRing } from '@/components/goal-ring'
 import { HourHeatmap } from '@/components/hour-heatmap'
+import { ActivityChartCard } from '@/components/activity-chart-card'
 
 export const dynamic = 'force-dynamic'
 
@@ -278,36 +278,13 @@ export default async function DashboardPage({ searchParams }) {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Activity</CardTitle>
-          <CardDescription>
-            {chartTotal.toLocaleString()} steps · {chartAvg.toLocaleString()}/day avg
-          </CardDescription>
-          <CardAction>
-            <div className="bg-muted flex gap-0.5 rounded-lg p-0.5">
-              {RANGES.map((option) => (
-                <Link
-                  key={option.key}
-                  href={`/dashboard?range=${option.key}`}
-                  scroll={false}
-                  className={cn(
-                    'rounded-md px-2.5 py-1 text-xs font-medium',
-                    option.key === range.key
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground'
-                  )}
-                >
-                  {option.label}
-                </Link>
-              ))}
-            </div>
-          </CardAction>
-        </CardHeader>
-        <CardContent>
-          <StepsAreaChart data={stepsSeries} />
-        </CardContent>
-      </Card>
+      <ActivityChartCard
+        data={stepsSeries}
+        total={chartTotal}
+        avg={chartAvg}
+        rangeKey={range.key}
+        ranges={RANGES}
+      />
 
       {hasHourly && (
         <Card>
