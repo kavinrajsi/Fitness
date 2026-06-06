@@ -3,8 +3,11 @@
  * cron syncs from the Google Health API. Prompts to connect Google Health when the
  * user hasn't, or explains the sync hasn't run yet when there are no rows.
  */
+import { Fragment } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
+import { HourlyStepsChart } from '@/components/charts'
 import {
   Card,
   CardAction,
@@ -34,8 +37,9 @@ const RANGES = [
 ]
 
 export default async function DataPage({ searchParams }) {
-  const { range: rangeParam } = await searchParams
+  const { range: rangeParam, day: dayParam } = await searchParams
   const range = RANGES.find((option) => option.key === rangeParam) ?? RANGES[0]
+  const selectedDay = /^\d{4}-\d{2}-\d{2}$/.test(dayParam ?? '') ? dayParam : null
 
   const supabase = await createClient()
   const {
@@ -49,13 +53,27 @@ export default async function DataPage({ searchParams }) {
     .order('date', { ascending: false })
   if (range.limit) metricsQuery = metricsQuery.limit(range.limit)
 
-  const [{ data: profile }, { data: dailyMetrics }] = await Promise.all([
+  const [{ data: profile }, { data: dailyMetrics }, { data: dayHourly }] = await Promise.all([
     supabase.from('profiles').select('google_health_refresh_token').eq('id', user.id).maybeSingle(),
     metricsQuery,
+    selectedDay
+      ? supabase.from('steps_hourly').select('hour, steps').eq('user_id', user.id).eq('day', selectedDay)
+      : Promise.resolve({ data: null }),
   ])
 
   const connected = !!profile?.google_health_refresh_token
   const days = dailyMetrics ?? []
+
+  // 24-hour breakdown for the selected day (missing hours → 0).
+  const hourlyByHour = {}
+  for (const bucket of dayHourly ?? []) hourlyByHour[bucket.hour] = bucket.steps
+  const hourlyData = Array.from({ length: 24 }, (_, hour) => ({
+    label: String(hour).padStart(2, '0'),
+    steps: hourlyByHour[hour] ?? 0,
+  }))
+  const hasDayHourly = (dayHourly ?? []).length > 0
+  const hrefFor = (date) =>
+    date === selectedDay ? `/data?range=${range.key}` : `/data?range=${range.key}&day=${date}`
   const total = days.reduce((runningTotal, day) => runningTotal + (day.steps ?? 0), 0)
   const max = days.reduce((highest, day) => Math.max(highest, day.steps ?? 0), 0)
   const average = days.length ? Math.round(total / days.length) : 0
@@ -125,22 +143,50 @@ export default async function DataPage({ searchParams }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {days.map((day) => (
-                  <TableRow key={day.date}>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">
-                      {formatDate(day.date)}
-                    </TableCell>
-                    <TableCell className="w-full">
-                      <div
-                        className="bg-primary h-2 rounded"
-                        style={{ width: max ? `${((day.steps ?? 0) / max) * 100}%` : '0%' }}
-                      />
-                    </TableCell>
-                    <TableCell className="text-right font-medium tabular-nums">
-                      {(day.steps ?? 0).toLocaleString()}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {days.map((day) => {
+                  const isSelected = day.date === selectedDay
+                  return (
+                    <Fragment key={day.date}>
+                      <TableRow className={cn(isSelected && 'bg-muted/50')}>
+                        <TableCell className="whitespace-nowrap">
+                          <Link
+                            href={hrefFor(day.date)}
+                            className="text-muted-foreground hover:text-foreground font-medium hover:underline"
+                          >
+                            {formatDate(day.date)}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="w-full">
+                          <div
+                            className="bg-primary h-2 rounded"
+                            style={{ width: max ? `${((day.steps ?? 0) / max) * 100}%` : '0%' }}
+                          />
+                        </TableCell>
+                        <TableCell className="text-right font-medium tabular-nums">
+                          {(day.steps ?? 0).toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                      {isSelected && (
+                        <TableRow className="hover:bg-transparent">
+                          <TableCell colSpan={3} className="bg-muted/20">
+                            {hasDayHourly ? (
+                              <div className="py-2">
+                                <div className="text-muted-foreground mb-2 text-xs">
+                                  Hourly breakdown · {formatDate(day.date)}
+                                </div>
+                                <HourlyStepsChart data={hourlyData} />
+                              </div>
+                            ) : (
+                              <p className="text-muted-foreground py-3 text-sm">
+                                No hourly breakdown for this day.
+                              </p>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
+                  )
+                })}
               </TableBody>
             </Table>
           </div>
