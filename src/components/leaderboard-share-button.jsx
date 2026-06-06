@@ -23,15 +23,12 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer'
 
-// 'image' targets render+share the actual PNG (via the OS share sheet / download).
-// The 'link' target opens WhatsApp directly with a message linking the public image —
-// the web can't push an image file straight into WhatsApp, only the share sheet can.
+// Each target maps to an OG image format (Story and WhatsApp Status share the 9:16 'story').
 const PLATFORMS = [
-  { label: 'Instagram Story', kind: 'image', format: 'story', file: 'instagram-story', icon: Camera },
-  { label: 'Instagram Post', kind: 'image', format: 'post', file: 'instagram-post', icon: Camera },
-  { label: 'WhatsApp Status', kind: 'image', format: 'story', file: 'whatsapp-status', icon: MessageCircle },
-  { label: 'WhatsApp Message', kind: 'image', format: 'square', file: 'whatsapp-message', icon: MessageCircle },
-  { label: 'WhatsApp (link)', kind: 'link', format: 'square', icon: MessageCircle },
+  { label: 'Instagram Story', format: 'story', file: 'instagram-story', icon: Camera },
+  { label: 'Instagram Post', format: 'post', file: 'instagram-post', icon: Camera },
+  { label: 'WhatsApp Status', format: 'story', file: 'whatsapp-status', icon: MessageCircle },
+  { label: 'WhatsApp Message', format: 'square', file: 'whatsapp-message', icon: MessageCircle },
 ]
 
 export function LeaderboardShareButton({ period }) {
@@ -68,18 +65,6 @@ export function LeaderboardShareButton({ period }) {
     }
   }
 
-  // Opens WhatsApp directly (chat picker) with a message linking the public OG image.
-  function shareWhatsAppLink(format) {
-    const imageUrl = `${window.location.origin}/api/og/leaderboard?period=${period}&format=${format}`
-    const text = `Top movers on KyaReFitting 🏆\n${imageUrl}`
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener')
-  }
-
-  const onSelect = (platform) =>
-    platform.kind === 'link'
-      ? shareWhatsAppLink(platform.format)
-      : share(platform.format, platform.file)
-
   const triggerLabel = busy ? 'Preparing…' : 'Share'
 
   // Mobile: a bottom sheet with full-width platform buttons.
@@ -105,7 +90,7 @@ export function LeaderboardShareButton({ period }) {
                     disabled={busy}
                     onClick={() => {
                       setOpen(false)
-                      onSelect(platform)
+                      share(platform.format, platform.file)
                     }}
                   >
                     <Icon /> {platform.label}
@@ -136,7 +121,7 @@ export function LeaderboardShareButton({ period }) {
             <DropdownMenuItem
               key={platform.label}
               disabled={busy}
-              onClick={() => onSelect(platform)}
+              onClick={() => share(platform.format, platform.file)}
             >
               <Icon /> {platform.label}
             </DropdownMenuItem>
