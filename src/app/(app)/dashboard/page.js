@@ -33,6 +33,7 @@ import { cn } from '@/lib/utils'
 import { dkey } from '@/lib/date-utils'
 import { StepsAreaChart, HourlyStepsChart, MetricTrendChart } from '@/components/charts'
 import { GoalRing } from '@/components/goal-ring'
+import { HourHeatmap } from '@/components/hour-heatmap'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,22 +57,28 @@ export default async function DashboardPage({ searchParams }) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const [{ data: profile }, { data: dailyMetrics }, { data: hourlyToday }, details] =
-    await Promise.all([
-      supabase.from('profiles').select('daily_step_goal').eq('id', user.id).maybeSingle(),
-      supabase
-        .from('daily_metrics')
-        .select(
-          'date, steps, active_min, resting_hr, hydration_ml, vo2_max, spo2, hrv_ms, total_calories, hr_avg, hr_min, hr_max, sleep_min'
-        )
-        .eq('user_id', user.id),
-      supabase
-        .from('steps_hourly')
-        .select('hour, steps')
-        .eq('user_id', user.id)
-        .eq('day', dkey(0)),
-      getUserDetails(),
-    ])
+  const [
+    { data: profile },
+    { data: dailyMetrics },
+    { data: hourlyToday },
+    { data: hourlyRange },
+    details,
+  ] = await Promise.all([
+    supabase.from('profiles').select('daily_step_goal').eq('id', user.id).maybeSingle(),
+    supabase
+      .from('daily_metrics')
+      .select(
+        'date, steps, active_min, resting_hr, hydration_ml, vo2_max, spo2, hrv_ms, total_calories, hr_avg, hr_min, hr_max, sleep_min'
+      )
+      .eq('user_id', user.id),
+    supabase.from('steps_hourly').select('hour, steps').eq('user_id', user.id).eq('day', dkey(0)),
+    supabase
+      .from('steps_hourly')
+      .select('day, hour, steps')
+      .eq('user_id', user.id)
+      .gte('day', dkey(89)),
+    getUserDetails(),
+  ])
 
   const goal = profile?.daily_step_goal ?? 10000
   const game = computeGamification(dailyMetrics ?? [], goal)
@@ -126,6 +133,28 @@ export default async function DashboardPage({ searchParams }) {
     steps: hourlyByHour[hour] ?? 0,
   }))
   const hasHourly = (hourlyToday ?? []).length > 0
+
+  // Activity heatmap: steps summed by (weekday, hour) over the last ~90 days, + the peak.
+  const heatGrid = Array.from({ length: 7 }, () => new Array(24).fill(0))
+  const byHourOfDay = new Array(24).fill(0)
+  const byWeekday = new Array(7).fill(0)
+  let heatMax = 0
+  for (const bucket of hourlyRange ?? []) {
+    const weekday = new Date(bucket.day + 'T00:00:00Z').getUTCDay()
+    const steps = bucket.steps ?? 0
+    heatGrid[weekday][bucket.hour] += steps
+    byHourOfDay[bucket.hour] += steps
+    byWeekday[weekday] += steps
+    if (heatGrid[weekday][bucket.hour] > heatMax) heatMax = heatGrid[weekday][bucket.hour]
+  }
+  const hasHeatmap = heatMax > 0
+  const peakHour = byHourOfDay.indexOf(Math.max(...byHourOfDay))
+  const peakWeekday = byWeekday.indexOf(Math.max(...byWeekday))
+  const WEEKDAY_NAMES = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays']
+  const peakHourLabel = `${peakHour % 12 === 0 ? 12 : peakHour % 12} ${peakHour < 12 ? 'AM' : 'PM'}`
+  const activeInsight = hasHeatmap
+    ? `Most active around ${peakHourLabel} · busiest on ${WEEKDAY_NAMES[peakWeekday]}`
+    : null
 
   // Heart-rate and sleep trends over the selected range (gaps where no reading).
   const hrByDate = {}
@@ -286,6 +315,18 @@ export default async function DashboardPage({ searchParams }) {
           </CardHeader>
           <CardContent>
             <HourlyStepsChart data={hourlyData} />
+          </CardContent>
+        </Card>
+      )}
+
+      {hasHeatmap && (
+        <Card>
+          <CardHeader>
+            <CardTitle>When you&apos;re active</CardTitle>
+            <CardDescription>{activeInsight}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <HourHeatmap grid={heatGrid} max={heatMax} />
           </CardContent>
         </Card>
       )}
