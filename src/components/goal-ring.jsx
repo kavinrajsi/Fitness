@@ -24,7 +24,7 @@ export function GoalRing({ pct, label, sublabel, size = 148, stroke = 12 }) {
           cy={center}
           r={radius}
           fill="none"
-          stroke="var(--primary)"
+          stroke="var(--brand)"
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={circumference}
