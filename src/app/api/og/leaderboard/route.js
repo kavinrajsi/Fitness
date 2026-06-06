@@ -28,12 +28,21 @@ export async function GET(request) {
   const period = PERIODS[params.get('period')] ?? PERIODS.month
   const portrait = params.get('format') === 'story'
 
+  const since = period.since()
+  const until = period.until()
+
   const service = createServiceClient()
   const { data: rows } = await service.rpc('leaderboard_between', {
-    since_date: period.since(),
-    until_date: period.until(),
+    since_date: since,
+    until_date: until,
   })
   const top = (rows ?? []).filter((r) => Number(r.total_steps) > 0).slice(0, 5)
+
+  // Period label with its date(s), e.g. "Today · Jun 6" or "Last 7 days · May 31 – Jun 6".
+  const fmtDay = (d) =>
+    new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+  const dateLabel = since === until ? fmtDay(since) : `${fmtDay(since)} – ${fmtDay(until)}`
+  const subtitle = `${period.label} · ${dateLabel}`
 
   // Layout constants per format.
   const s = portrait
@@ -47,7 +56,7 @@ export async function GET(request) {
       </svg>
       <div style={{ display: 'flex', marginTop: 28, fontSize: s.brand, color: '#aaa' }}>KyaReFitting</div>
       <div style={{ display: 'flex', fontSize: s.title, fontWeight: 800, lineHeight: 1.05 }}>Leaderboard</div>
-      <div style={{ display: 'flex', marginTop: 8, fontSize: s.period, color: BRAND }}>{period.label}</div>
+      <div style={{ display: 'flex', marginTop: 8, fontSize: s.period, color: BRAND }}>{subtitle}</div>
     </div>
   ) : (
     <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -56,7 +65,7 @@ export async function GET(request) {
       </svg>
       <div style={{ display: 'flex', fontSize: s.brand, fontWeight: 700 }}>KyaReFitting</div>
       <div style={{ display: 'flex', marginLeft: 'auto', fontSize: s.period, color: BRAND }}>
-        Leaderboard · {period.label}
+        Leaderboard · {subtitle}
       </div>
     </div>
   )
