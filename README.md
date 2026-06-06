@@ -2,7 +2,8 @@
 
 A Google-Health–powered fitness tracker: sign in with Google, sync your steps and
 health metrics, climb a leaderboard, and get a push notification when a top mover pulls
-ahead. Built with Next.js 16 + Supabase.
+ahead. You can also hand your own data to an AI assistant over an MCP server. Built with
+Next.js 16 + Supabase.
 
 ## Stack
 
@@ -13,8 +14,11 @@ ahead. Built with Next.js 16 + Supabase.
 - **Google Health API** (`health.googleapis.com/v4`) for metrics + **People API** for
   gender/birthday. Restricted scopes; sign-in and Health use **separate** OAuth tokens.
 - **Tailwind v4** + **shadcn/ui** (style `base-nova`, which is **Base UI** based — the
-  `Button` has no `asChild`), **IBM Plex Sans**, **recharts** for charts.
+  `Button` has no `asChild`), **IBM Plex Sans**, **recharts** for charts. Dark mode is the
+  default (`next-themes`), with a `--brand` yellow token + a 5-colour chart palette.
 - **web-push** for Web Push notifications (VAPID), with a service worker + PWA manifest.
+- **MCP server** (`mcp-handler`) at `/api/mcp/mcp` — read-only tools an AI can call with a
+  per-user token; **vaul** drawers, **@tanstack/react-table**, and **zod** round out the UI.
 - **Vercel** — hosting + a daily cron.
 
 ## Features
@@ -24,7 +28,16 @@ ahead. Built with Next.js 16 + Supabase.
   avg/min/max HR, VO₂, SpO₂, HRV, active minutes, hydration), steps area chart, intraday
   hourly chart, HR/sleep trend charts, streaks + achievements.
 - **Steps** (`/data`) with 90D / 1Y / All ranges, **Workouts**, **Leaderboard**
-  (Today / 7D / This month), **Profile** (details, goal, notifications, reconnect).
+  (Today / Yesterday / 7D / This month), **Profile** (details, goal, notifications, theme,
+  reconnect). Dark/light theme toggle (dark default); a mobile bottom nav on small screens.
+- **Share** — a branded top-5 leaderboard image (`/api/og/leaderboard`) in four sizes:
+  Instagram Story 1080×1920, Instagram Post 1080×1350, WhatsApp square 1080×1080, and a
+  1200×630 link preview. The Share control is a dropdown on desktop and a bottom sheet on
+  mobile.
+- **AI access (MCP)** — the `/ai` page mints per-user API tokens; the remote MCP server at
+  `/api/mcp/mcp` then exposes **7 read-only tools** (`get_profile`, `get_daily_metrics`,
+  `get_step_stats`, `get_streaks_and_achievements`, `get_activity_heatmap`, `get_workouts`,
+  `get_leaderboard`) so Claude can read **only that user's** data.
 - **Admin** (`/admin`, gated to `ADMIN_EMAIL`, `noindex`) — all users, per-user drill-down,
   device list, and a push **notification log**.
 - **Sync** three ways: a daily cron, an on-demand streaming Sync button, and a Google
@@ -36,17 +49,20 @@ ahead. Built with Next.js 16 + Supabase.
 
 | Table | What it holds |
 |---|---|
-| `profiles` | user, Google + Google-Health tokens, height/weight/age/gender/birthday, `daily_step_goal`, sync flags |
+| `profiles` | user, Google + Google-Health tokens, height/weight/age/gender/birthday, `daily_step_goal`, `google_health_user_id` (webhook mapping), and sync flags (`health_data_backfilled_at`, `details_synced_at`) |
 | `daily_metrics` | one row per user per day: steps, calories, total_calories, distance, sleep, resting/avg/min/max HR, VO₂, SpO₂, HRV, active minutes, hydration |
-| `steps_hourly` | intraday hourly step buckets (recent window) |
+| `steps_raw` | raw intraday step samples (started_at/ended_at/count) — the source for the hourly buckets and heatmap |
+| `steps_hourly` | intraday hourly step buckets aggregated from `steps_raw` |
 | `workouts` | exercise sessions: type, start/end, duration, calories, distance, steps, active-zone minutes, elevation, pace |
 | `leaderboard_snapshot` | last-seen 7-day totals (drives push deltas) |
 | `push_subscriptions` | Web Push subscriptions + device label/user-agent |
 | `notification_log` / `notification_recipients` | push audit log (what was sent, to whom, status, device) |
+| `api_tokens` | per-user MCP bearer tokens, stored hashed (`token_hash`) with `last_four`, `name`, `last_used_at`, `revoked_at` |
 
 Migrations are applied directly via the **Supabase MCP** (`apply_migration`); there is no
-tracked `supabase/` migrations folder. The ranking is computed in SQL
-(`leaderboard_since(date)`, security-definer).
+tracked `supabase/` migrations folder. Cross-user ranking is computed in SQL by two
+security-definer functions: `leaderboard_between(since, until)` (the leaderboard page and
+the share images) and `leaderboard_since(date)` (push deltas and the MCP leaderboard tool).
 
 ## Environment variables
 
@@ -92,8 +108,16 @@ npm run dev        # start dev server
 npm run build      # production build
 npm run start      # run the production build
 npm run lint       # eslint
-npm run test       # vitest (date-utils + gamification)
+npm run test       # vitest (run once)
 ```
+
+### Testing & CI
+
+`npm test` runs the **vitest** suite (`vitest.config.js`, node env): six files under
+`src/lib/` covering `date-utils`, `gamification`, `google-health` (fetch-mocked),
+`google-people`, `heatmap`, and `push-client`. GitHub Actions (`.github/workflows/ci.yml`,
+Node 22) runs `npm ci` → `npm test` → `npm run build` on every push to `main` and PR. Lint
+is available via `npm run lint` but is **not** enforced in CI.
 
 ## Sync pipeline
 
@@ -104,7 +128,21 @@ All three entry points share `syncUserMetrics` (`src/lib/sync-metrics.js`):
 - **Manual** — `POST /api/sync` streams live progress (NDJSON) to the Sync button.
 - **Webhook** — `POST /api/webhooks/health` re-syncs a user on new Google Health data.
 
-After a sync, `notifyTopMovers()` checks the 7-day leaderboard and pushes alerts.
+Each run upserts `daily_metrics` and `workouts`, plus raw step samples into `steps_raw`
+and the rolled-up `steps_hourly` buckets that feed the activity heatmap (365 days on the
+one-time backfill, 14 days incrementally). After a sync, `notifyTopMovers()` checks the
+7-day leaderboard and pushes alerts.
+
+### API routes
+
+| Route | Purpose |
+|---|---|
+| `POST /api/sync` | on-demand sync, streams NDJSON progress to the Sync button |
+| `GET /api/cron/sync-metrics` | daily Vercel cron (`CRON_SECRET`); backfill-once then incremental |
+| `POST /api/webhooks/health` | Google Health change webhook (`GOOGLE_HEALTH_WEBHOOK_SECRET`) |
+| `GET /api/og/leaderboard` | branded top-5 image (`?period=`, `?format=story\|post\|square\|wide`) |
+| `POST/GET /api/mcp/mcp` | remote MCP server, per-user Bearer token, read-only tools |
+| `POST /api/push/{subscribe,unsubscribe,test}` | Web Push subscription + admin test broadcast |
 
 ## Deployment
 

@@ -36,13 +36,24 @@ full architecture, data model, and env vars. Key conventions to follow:
   style an `<a>` with `buttonVariants({ ... })` or use the Base UI `render` prop. Sidebar
   primitives also use `render`, not `asChild`.
 - Font is IBM Plex Sans; charts use recharts via `src/components/ui/chart.jsx`.
+- **Dark mode is the default** (`next-themes`; toggle on `/profile`). Use the `--brand`
+  yellow token and the `--chart-1..5` palette (`globals.css`) — don't hardcode hex.
+- Small screens get a **bottom nav** (`src/components/bottom-nav.jsx`); the header
+  hamburger is `md`-only. The leaderboard **share images** come from
+  `/api/og/leaderboard` (`?period=`, `?format=story|post|square|wide`) and the picker is
+  `src/components/leaderboard-share-button.jsx` (dropdown on desktop, bottom-sheet drawer
+  on mobile).
 
 ## Database
 - Supabase Postgres with **own-row RLS**; the service-role client
   (`src/lib/supabase/service.js`) bypasses RLS for cron/admin/cross-user reads only.
 - Apply schema changes with the **Supabase MCP** `apply_migration` (there is no tracked
   `supabase/` folder). **Confirm before applying production migrations.**
-- Cross-user ranking is a security-definer SQL function `leaderboard_since(date)`.
+- Cross-user ranking is **two** security-definer SQL functions: `leaderboard_between(since,
+  until)` (the `/leaderboard` page + `/api/og/leaderboard`) and `leaderboard_since(date)`
+  (push deltas in `notify-leaderboard.js` + the MCP `get_leaderboard` tool).
+- Raw step samples land in `steps_raw`, rolled into `steps_hourly`. MCP bearer tokens are
+  stored hashed in `api_tokens` (never store the raw token).
 
 ## Sync & push
 - All sync goes through `syncUserMetrics` (`src/lib/sync-metrics.js`), called by the cron,
@@ -51,7 +62,19 @@ full architecture, data model, and env vars. Key conventions to follow:
 - Web Push: `src/lib/push.js` (`sendPushToAll`) + `notifyTopMovers`
   (`src/lib/notify-leaderboard.js`). Opt-in only, from the Profile toggle.
 - Admin is gated by `ADMIN_EMAIL` (`src/lib/constants.js`).
+- Sync also writes `steps_raw` + `steps_hourly`; `src/lib/heatmap.js` (`buildHeatmap`)
+  aggregates the hourly rows into the weekday×hour activity grid.
+
+## AI / MCP
+- A remote **MCP server** lives at `src/app/api/mcp/[transport]/route.js` (endpoint
+  `/api/mcp/mcp`, built on `mcp-handler`). Users mint per-user API tokens on `/ai`
+  (`src/lib/api-tokens.js` hashes them into `api_tokens`).
+- Every tool authenticates with the user's Bearer token and reads **only that user's**
+  rows via the service client. Tools are **read-only** — do not add write/admin tools to
+  the MCP surface.
 
 ## Working agreements
 - Commit/push only when asked; end commit messages with the `Co-Authored-By` trailer.
-- Don't dump raw OAuth tokens to the transcript.
+- Don't dump raw OAuth tokens (or MCP API tokens) to the transcript.
+- Tests run via `npm test` (vitest, node env); CI (`.github/workflows/ci.yml`, Node 22)
+  runs install → test → build. Lint is **not** wired into CI — keep `npm test` green.
