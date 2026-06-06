@@ -1,9 +1,9 @@
 
-export const metadata = { title: 'Help — KyaReFitting' }
+export const metadata = { title: 'Help — KyaReFitting aa' }
 
 const FAQ = [
   {
-    q: 'What is KyaReFitting?',
+    q: 'What is KyaReFitting aa?',
     a: 'A personal fitness dashboard that shows your own Google Health activity — steps, calories, distance, heart rate, sleep, and body metrics — with daily goals, streaks, achievements, and a steps leaderboard.',
   },
   {

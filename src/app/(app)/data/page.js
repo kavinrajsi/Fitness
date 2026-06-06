@@ -28,7 +28,7 @@ import {
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: 'Steps data — KyaReFitting' }
+export const metadata = { title: 'Steps data — KyaReFitting aa' }
 
 const RANGES = [
   { key: '90d', label: 'Last 90 days', short: '90D', limit: 90 },

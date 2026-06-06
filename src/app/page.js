@@ -57,7 +57,7 @@ export default async function Home() {
       <section className="space-y-6">
         <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
           <Logo className="size-6" />
-          KyaReFitting
+          KyaReFitting aa
         </p>
         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground">
           Fitness, made quietly beautiful.
@@ -102,7 +102,7 @@ export default async function Home() {
       </section>
 
       <p className="mt-16 max-w-prose text-muted-foreground leading-7">
-        KyaReFitting is an independent project — a small, considered tool for people who just want
+        KyaReFitting aa is an independent project — a small, considered tool for people who just want
         to move a little more, every day.
       </p>
 

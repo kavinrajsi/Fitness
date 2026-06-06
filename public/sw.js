@@ -1,12 +1,12 @@
-/* KyaReFitting service worker — Web Push. */
+/* KyaReFitting aa service worker — Web Push. */
 self.addEventListener('push', (event) => {
   let payload = {}
   try {
     payload = event.data ? event.data.json() : {}
   } catch {
-    payload = { title: 'KyaReFitting', body: event.data ? event.data.text() : '' }
+    payload = { title: 'KyaReFitting aa', body: event.data ? event.data.text() : '' }
   }
-  const title = payload.title || 'KyaReFitting'
+  const title = payload.title || 'KyaReFitting aa'
   event.waitUntil(
     self.registration.showNotification(title, {
       body: payload.body || '',

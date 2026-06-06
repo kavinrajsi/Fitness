@@ -4,7 +4,7 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
-# KyaReFitting — agent guide
+# KyaReFitting aa — agent guide
 
 A Next.js 16 + Supabase fitness app on the Google Health API. See `README.md` for the
 full architecture, data model, and env vars. Key conventions to follow:

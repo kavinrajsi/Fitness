@@ -29,7 +29,7 @@ import { TestPushButton } from '@/components/test-push-button'
 export const dynamic = 'force-dynamic'
 
 export const metadata = {
-  title: 'Admin — KyaReFitting',
+  title: 'Admin — KyaReFitting aa',
   robots: { index: false, follow: false },
 }
 

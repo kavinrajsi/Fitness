@@ -1,5 +1,5 @@
 
-export const metadata = { title: 'Privacy Policy — KyaReFitting' }
+export const metadata = { title: 'Privacy Policy — KyaReFitting aa' }
 
 export default function PrivacyPage() {
   return (
@@ -12,7 +12,7 @@ export default function PrivacyPage() {
 
       <article className="mt-8">
         <p className="text-muted-foreground leading-7 mb-4">
-          KyaReFitting (&quot;we&quot;, &quot;us&quot;, the &quot;App&quot;) is a personal
+          KyaReFitting aa (&quot;we&quot;, &quot;us&quot;, the &quot;App&quot;) is a personal
           fitness dashboard that shows you your own Google Health activity. This policy
           explains what we collect, how we use it, and the choices you have. By using the
           App you agree to this policy.
@@ -53,7 +53,7 @@ export default function PrivacyPage() {
 
         <h2 className="text-lg font-semibold mt-8 mb-2 text-foreground">Google API Limited Use</h2>
         <p className="text-muted-foreground leading-7 mb-4">
-          KyaReFitting&apos;s use and transfer of information received from Google APIs to any
+          KyaReFitting aa&apos;s use and transfer of information received from Google APIs to any
           other app will adhere to the{' '}
           <a
             className="underline"

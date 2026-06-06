@@ -39,7 +39,7 @@ import { buildHeatmap } from '@/lib/heatmap'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: 'Dashboard — KyaReFitting' }
+export const metadata = { title: 'Dashboard — KyaReFitting aa' }
 
 const RANGES = [
   { key: '7d', label: '7D', days: 7 },

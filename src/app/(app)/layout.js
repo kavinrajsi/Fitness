@@ -8,6 +8,7 @@ import { ADMIN_EMAIL } from '@/lib/constants'
 import { AppSidebar } from '@/components/app-sidebar'
 import { SyncButton } from '@/components/sync-button'
 import { PushBootstrap } from '@/components/push-bootstrap'
+import { BottomNav } from '@/components/bottom-nav'
 import { Logo } from '@/components/logo'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
@@ -48,15 +49,18 @@ export default async function AppLayout({ children }) {
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-1 h-4" />
           <Logo className="size-5" />
-          <span className="text-sm font-medium">KyaReFitting</span>
+          <span className="text-sm font-medium">KyaReFitting aa</span>
           {healthConnected && (
             <div className="ml-auto">
               <SyncButton />
             </div>
           )}
         </header>
-        <div className="mx-auto w-full max-w-4xl flex-1 p-4 md:p-6">{children}</div>
+        <div className="mx-auto w-full max-w-4xl flex-1 p-4 pb-24 md:p-6 md:pb-6">
+          {children}
+        </div>
       </SidebarInset>
+      <BottomNav />
     </SidebarProvider>
   )
 }

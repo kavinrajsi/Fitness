@@ -14,7 +14,7 @@ export async function POST() {
 
   const { sent } = await sendPushToAll(
     {
-      title: 'KyaReFitting',
+      title: 'KyaReFitting aa',
       body: 'Test notification — push is working 🎉',
       url: '/leaderboard',
     },

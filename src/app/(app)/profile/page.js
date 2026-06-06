@@ -22,7 +22,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: 'Profile — KyaReFitting' }
+export const metadata = { title: 'Profile — KyaReFitting aa' }
 
 export default async function ProfilePage({ searchParams }) {
   const { health } = await searchParams

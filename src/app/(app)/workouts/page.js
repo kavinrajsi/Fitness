@@ -20,7 +20,7 @@ import {
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: 'Workouts — KyaReFitting' }
+export const metadata = { title: 'Workouts — KyaReFitting aa' }
 
 function fmtDate(iso) {
   return iso

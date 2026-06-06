@@ -1,5 +1,5 @@
 
-export const metadata = { title: 'Terms of Service — KyaReFitting' }
+export const metadata = { title: 'Terms of Service — KyaReFitting aa' }
 
 export default function TermsPage() {
   return (
@@ -12,14 +12,14 @@ export default function TermsPage() {
 
       <article className="mt-8">
         <p className="text-muted-foreground leading-7 mb-4">
-          These Terms govern your use of KyaReFitting (the &quot;App&quot;). By signing in or
+          These Terms govern your use of KyaReFitting aa (the &quot;App&quot;). By signing in or
           using the App, you agree to these Terms. If you do not agree, please do not use the
           App.
         </p>
 
         <h2 className="text-lg font-semibold mt-8 mb-2 text-foreground">The service</h2>
         <p className="text-muted-foreground leading-7 mb-4">
-          KyaReFitting is a personal fitness dashboard that displays your own Google Health
+          KyaReFitting aa is a personal fitness dashboard that displays your own Google Health
           activity — steps, calories, distance, heart rate, sleep, and body metrics — along with
           goals, streaks, achievements, and a steps leaderboard. The App is provided for personal,
           non-commercial use.
@@ -34,7 +34,7 @@ export default function TermsPage() {
 
         <h2 className="text-lg font-semibold mt-8 mb-2 text-foreground">Health information disclaimer</h2>
         <p className="text-muted-foreground leading-7 mb-4">
-          KyaReFitting is <strong className="text-foreground font-medium">not a medical device</strong> and does not provide medical
+          KyaReFitting aa is <strong className="text-foreground font-medium">not a medical device</strong> and does not provide medical
           advice, diagnosis, or treatment. Health and fitness data shown in the App may be
           inaccurate or incomplete and should not be relied upon for medical decisions. Always
           consult a qualified healthcare professional regarding your health.
@@ -72,7 +72,7 @@ export default function TermsPage() {
 
         <h2 className="text-lg font-semibold mt-8 mb-2 text-foreground">Limitation of liability</h2>
         <p className="text-muted-foreground leading-7 mb-4">
-          To the maximum extent permitted by law, KyaReFitting and its operators will not be
+          To the maximum extent permitted by law, KyaReFitting aa and its operators will not be
           liable for any indirect, incidental, or consequential damages, or for any loss of data,
           arising from your use of the App.
         </p>

@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * App sidebar — KyaReFitting nav (Dashboard / Steps / Leaderboard / Profile), the
+ * App sidebar — KyaReFitting aa nav (Dashboard / Steps / Leaderboard / Profile), the
  * signed-in user, and sign out. Built on the shadcn (base-nova) sidebar primitives,
  * which use the `render` prop for polymorphism.
  */
@@ -50,7 +50,7 @@ export function AppSidebar({ user, isAdmin = false, ...props }) {
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-1.5 text-base font-semibold tracking-tight">
           <Logo className="size-5" />
-          KyaReFitting
+          KyaReFitting aa
         </div>
       </SidebarHeader>
 

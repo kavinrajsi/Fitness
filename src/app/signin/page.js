@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = { title: 'Sign in — KyaReFitting' }
+export const metadata = { title: 'Sign in — KyaReFitting aa' }
 
 const ERROR_MESSAGES = {
   google_oauth_failed: 'Could not connect to Google. Please try again.',
