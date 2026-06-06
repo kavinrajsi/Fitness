@@ -61,8 +61,15 @@ export default async function AdminUserPage({ params }) {
   if (user?.email !== ADMIN_EMAIL) notFound()
 
   const service = createServiceClient()
-  const [{ data: profile }, { data: metrics }, { data: workouts }, { data: hourly }, { data: devices }] =
-    await Promise.all([
+  const [
+    { data: profile },
+    { data: metrics },
+    { data: workouts },
+    { data: hourly },
+    { data: devices },
+    { data: rawSamples, count: rawCount },
+    { data: rawOldest },
+  ] = await Promise.all([
       service
         .from('profiles')
         .select(
@@ -93,6 +100,18 @@ export default async function AdminUserPage({ params }) {
         .select('endpoint, device, user_agent, created_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: false }),
+      service
+        .from('steps_raw')
+        .select('started_at, count', { count: 'exact' })
+        .eq('user_id', userId)
+        .order('started_at', { ascending: false })
+        .limit(200),
+      service
+        .from('steps_raw')
+        .select('started_at')
+        .eq('user_id', userId)
+        .order('started_at', { ascending: true })
+        .limit(1),
     ])
 
   if (!profile) notFound()
@@ -335,6 +354,48 @@ export default async function AdminUserPage({ params }) {
               </TableBody>
             </Table>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Raw step samples</CardTitle>
+          <CardDescription>
+            {(rawCount ?? 0).toLocaleString()} samples
+            {rawCount
+              ? ` · ${fmtDate(rawOldest?.[0]?.started_at)} – ${fmtDate(rawSamples?.[0]?.started_at)}`
+              : ''}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!rawCount ? (
+            <p className="text-muted-foreground text-sm">No raw samples.</p>
+          ) : (
+            <div className="max-h-[24rem] overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Time</TableHead>
+                    <TableHead className="text-right">Steps</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(rawSamples ?? []).map((sample) => (
+                    <TableRow key={sample.started_at}>
+                      <TableCell className="text-muted-foreground text-xs">
+                        {fmtDateTime(sample.started_at)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{dash(sample.count)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <p className="text-muted-foreground mt-2 text-xs">
+                Showing the {Math.min(rawSamples?.length ?? 0, 200)} most recent of{' '}
+                {(rawCount ?? 0).toLocaleString()}.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
