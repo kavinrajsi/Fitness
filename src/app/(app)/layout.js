@@ -46,8 +46,8 @@ export default async function AppLayout({ children }) {
       />
       <SidebarInset>
         <header className="bg-background/80 sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-1 h-4" />
+          <SidebarTrigger className="-ml-1 hidden md:flex" />
+          <Separator orientation="vertical" className="mr-1 hidden h-4 md:block" />
           <Logo className="size-5" />
           <span className="text-sm font-medium">KyaReFitting aa</span>
           {healthConnected && (
