@@ -35,6 +35,7 @@ import { HourlyStepsChart, MetricTrendChart } from '@/components/charts'
 import { GoalRing } from '@/components/goal-ring'
 import { HourHeatmap } from '@/components/hour-heatmap'
 import { ActivityChartCard } from '@/components/activity-chart-card'
+import { buildHeatmap } from '@/lib/heatmap'
 
 export const dynamic = 'force-dynamic'
 
@@ -135,27 +136,13 @@ export default async function DashboardPage({ searchParams }) {
   }))
   const hasHourly = (hourlyToday ?? []).length > 0
 
-  // Activity heatmap: steps summed by (weekday, hour) over the last ~90 days, + the peak.
-  const heatGrid = Array.from({ length: 7 }, () => new Array(24).fill(0))
-  const byHourOfDay = new Array(24).fill(0)
-  const byWeekday = new Array(7).fill(0)
-  let heatMax = 0
-  for (const bucket of hourlyRange ?? []) {
-    const weekday = new Date(bucket.day + 'T00:00:00Z').getUTCDay()
-    const steps = bucket.steps ?? 0
-    heatGrid[weekday][bucket.hour] += steps
-    byHourOfDay[bucket.hour] += steps
-    byWeekday[weekday] += steps
-    if (heatGrid[weekday][bucket.hour] > heatMax) heatMax = heatGrid[weekday][bucket.hour]
-  }
-  const hasHeatmap = heatMax > 0
-  const peakHour = byHourOfDay.indexOf(Math.max(...byHourOfDay))
-  const peakWeekday = byWeekday.indexOf(Math.max(...byWeekday))
-  const WEEKDAY_NAMES = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays']
-  const peakHourLabel = `${peakHour % 12 === 0 ? 12 : peakHour % 12} ${peakHour < 12 ? 'AM' : 'PM'}`
-  const activeInsight = hasHeatmap
-    ? `Most active around ${peakHourLabel} · busiest on ${WEEKDAY_NAMES[peakWeekday]}`
-    : null
+  // Activity heatmap (weekday × hour) over the last ~90 days, + the "most active" insight.
+  const {
+    grid: heatGrid,
+    max: heatMax,
+    has: hasHeatmap,
+    insight: activeInsight,
+  } = buildHeatmap(hourlyRange)
 
   // Heart-rate and sleep trends over the selected range (gaps where no reading).
   const hrByDate = {}

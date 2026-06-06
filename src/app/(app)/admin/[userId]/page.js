@@ -26,6 +26,8 @@ import {
 } from '@/components/ui/table'
 import { ADMIN_EMAIL } from '@/lib/constants'
 import { StepsAreaChart } from './steps-area-chart'
+import { HourHeatmap } from '@/components/hour-heatmap'
+import { buildHeatmap } from '@/lib/heatmap'
 
 export const dynamic = 'force-dynamic'
 
@@ -125,6 +127,7 @@ export default async function AdminUserPage({ params }) {
   const goal = profile.daily_step_goal ?? 10000
   const name = profile.full_name ?? 'Account'
   const initial = (name?.[0] ?? profile.email?.[0] ?? '?').toUpperCase()
+  const heat = buildHeatmap(hourly)
 
   const details = [
     ['Goal', `${goal.toLocaleString()} steps/day`],
@@ -231,6 +234,18 @@ export default async function AdminUserPage({ params }) {
       </Card>
 
       <StepsAreaChart data={stepsChartData} />
+
+      {heat.has && (
+        <Card>
+          <CardHeader>
+            <CardTitle>When active</CardTitle>
+            <CardDescription>{heat.insight}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <HourHeatmap grid={heat.grid} max={heat.max} />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
