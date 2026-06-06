@@ -15,15 +15,15 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { syncAllConnectedUsers } from '@/lib/sync-metrics'
-import { notifyTopMovers, notifyLeaderboardTop } from '@/lib/notify-leaderboard'
+import { notifyLeaderboardTop } from '@/lib/notify-leaderboard'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 // Authorize the cron caller, then sync every Google-Health-connected profile in turn,
 // tallying users/rows touched (and skips) for the JSON summary. Runs sequentially to
-// stay within the function's compute/rate limits, then pushes leaderboard movers and
-// the morning "yesterday's top 3" leaderboard at the end.
+// stay within the function's compute/rate limits, then pushes the morning "yesterday's
+// top 3" leaderboard at the end.
 export async function GET(request) {
   // Require CRON_SECRET — never run unauthenticated even if the env var is missing.
   const secret = process.env.CRON_SECRET
@@ -48,7 +48,6 @@ export async function GET(request) {
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 })
   }
 
-  await notifyTopMovers(supabase)
   // Morning leaderboard push: the day's data is now synced, so broadcast yesterday's top 3.
   await notifyLeaderboardTop(supabase, { period: 'yesterday' })
 

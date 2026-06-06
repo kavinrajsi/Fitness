@@ -1,9 +1,10 @@
 # KyaReFitting aa
 
 A Google-Health–powered fitness tracker: sign in with Google, sync your steps and
-health metrics, climb a leaderboard, and get a push notification when a top mover pulls
-ahead. You can also hand your own data to an AI assistant over an MCP server. Built with
-Next.js 16 + Supabase.
+health metrics, climb a leaderboard, and get push notifications — when a top mover pulls
+ahead, plus a daily morning (yesterday's top 3) and night (today's top 3) recap. You can
+also hand your own data to an AI assistant over an MCP server. Built with Next.js 16 +
+Supabase.
 
 ## Stack
 
@@ -142,8 +143,15 @@ All three entry points share `syncUserMetrics` (`src/lib/sync-metrics.js`):
 
 Each run upserts `daily_metrics` and `workouts`, plus raw step samples into `steps_raw`
 and the rolled-up `steps_hourly` buckets that feed the activity heatmap (365 days on the
-one-time backfill, 14 days incrementally). After a sync, `notifyTopMovers()` checks the
-7-day leaderboard and pushes alerts.
+one-time backfill, 14 days incrementally). After a **manual** sync or **webhook** sync,
+`notifyTopMovers()` checks the 7-day leaderboard and pushes "added N steps" alerts.
+
+Daily leaderboard pushes (to all opt-in subscribers) run on two crons:
+
+- **Morning** — at the end of the `sync-metrics` cron, `notifyLeaderboardTop()` broadcasts
+  **yesterday's top 3**.
+- **Night** — `GET /api/cron/notify-leaderboard?period=today&sync=1` (`30 15 * * *` UTC =
+  21:00 IST) re-syncs all users, then broadcasts **today's top 3**.
 
 Full endpoint reference with **sample requests + responses**: [docs/API.md](docs/API.md)
 (human docs also live at `/developers`; machine spec at `/api/v1/openapi.json`).
@@ -153,7 +161,8 @@ Full endpoint reference with **sample requests + responses**: [docs/API.md](docs
 | Route | Purpose |
 |---|---|
 | `POST /api/sync` | on-demand sync, streams NDJSON progress to the Sync button |
-| `GET /api/cron/sync-metrics` | daily Vercel cron (`CRON_SECRET`); backfill-once then incremental |
+| `GET /api/cron/sync-metrics` | daily Vercel cron (`CRON_SECRET`); backfill-once then incremental, then pushes yesterday's top 3 |
+| `GET /api/cron/notify-leaderboard` | nightly Vercel cron (`CRON_SECRET`); `?period=today&sync=1` re-syncs then pushes today's top 3 |
 | `POST /api/webhooks/health` | Google Health change webhook (`GOOGLE_HEALTH_WEBHOOK_SECRET`) |
 | `GET /api/og/leaderboard` | branded top-5 image (`?period=`, `?format=story\|post\|square\|wide`) |
 | `POST/GET /api/mcp/mcp` | remote MCP server, per-user Bearer token, read-only tools |
@@ -163,8 +172,9 @@ Full endpoint reference with **sample requests + responses**: [docs/API.md](docs
 
 ## Deployment
 
-Hosted on Vercel. Set all env vars in **Production**, then deploy. The cron is configured
-in `vercel.json`. Web Push needs the VAPID vars; on iPhone, users must **Add to Home
+Hosted on Vercel. Set all env vars in **Production**, then deploy. The crons are configured
+in `vercel.json` (sync-metrics + notify-leaderboard — two jobs, which needs a Vercel **Pro**
+plan; Hobby caps at 2). Web Push needs the VAPID vars; on iPhone, users must **Add to Home
 Screen** (install the PWA) before notifications can be delivered.
 
 ## Notes
