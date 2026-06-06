@@ -12,8 +12,16 @@ import {
   getHealthUserId,
   getWorkouts,
   getStepHistory,
-  getHourlySteps,
+  getStepSamples,
+  hourlyFromSamples,
 } from '@/lib/google-health'
+
+// Supabase rejects huge single upserts — write in chunks.
+async function upsertChunked(service, table, rows, conflict, size = 1000) {
+  for (let i = 0; i < rows.length; i += size) {
+    await service.from(table).upsert(rows.slice(i, i + size), { onConflict: conflict })
+  }
+}
 
 export async function syncUserMetrics(
   service,
@@ -67,17 +75,34 @@ export async function syncUserMetrics(
       )
   }
 
-  // Intraday hourly steps (recent window) → steps_hourly table.
-  step('Fetching hourly steps')
-  const hourly = await getHourlySteps(token, 14)
-  if (hourly.length) {
+  // Raw intraday step samples + hourly buckets. A full year on the first backfill,
+  // a short recent window on incremental syncs.
+  step('Fetching intraday step samples')
+  const samples = await getStepSamples(token, fullHistory ? 365 : 14)
+  if (samples.length) {
     const now = new Date().toISOString()
-    await service
-      .from('steps_hourly')
-      .upsert(
-        hourly.map((bucket) => ({ user_id: profile.id, ...bucket, updated_at: now })),
-        { onConflict: 'user_id,day,hour' }
-      )
+    await upsertChunked(
+      service,
+      'steps_raw',
+      samples.map((sample) => ({
+        user_id: profile.id,
+        started_at: sample.started_at,
+        ended_at: sample.ended_at,
+        count: sample.count,
+        updated_at: now,
+      })),
+      'user_id,started_at'
+    )
+    await upsertChunked(
+      service,
+      'steps_hourly',
+      hourlyFromSamples(samples).map((bucket) => ({
+        user_id: profile.id,
+        ...bucket,
+        updated_at: now,
+      })),
+      'user_id,day,hour'
+    )
   }
 
   // Full daily step history (older than the 90-day window) — steps only, partial
@@ -103,7 +128,7 @@ export async function syncUserMetrics(
     rows: metrics.length,
     metrics,
     workouts: workouts.length,
-    hourly: hourly.length,
+    samples: samples.length,
     historyDays,
   }
 }

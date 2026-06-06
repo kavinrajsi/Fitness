@@ -159,40 +159,60 @@ export async function getStepHistory(token, months = 24) {
 }
 
 /**
- * Intraday hourly step buckets for the last `days` days, from the step LIST data
- * (steps.interval.civilStartTime + steps.count). Returns [{ day, hour, steps }].
+ * Raw intraday step samples for the last `days` days from the step LIST data.
+ * The steps type doesn't support a date filter, so we paginate newest-first and stop
+ * once we pass the cutoff (or run out of pages). Returns one entry per recorded interval:
+ * { started_at, ended_at, count, day, hour } (day/hour from the IST civil start time).
  */
-export async function getHourlySteps(token, days = 14) {
-  const since = isoDate(-(days - 1))
-  const params = new URLSearchParams({ pageSize: '5000' })
-  params.set('filter', `steps.interval.end_time >= "${since}T00:00:00Z"`)
-  let response = await fetch(`${HEALTH_API}/steps/dataPoints?${params}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: 'no-store',
-  })
-  if (!response.ok) {
-    // Filter unsupported — fall back to an unfiltered page and clip client-side.
-    response = await fetch(`${HEALTH_API}/steps/dataPoints?pageSize=5000`, {
+export async function getStepSamples(token, days = 365, maxPages = 80) {
+  const cutoffMs = Date.now() - days * 86400000
+  const base = `${HEALTH_API}/steps/dataPoints?pageSize=5000`
+  let url = base
+  const samples = []
+
+  for (let page = 0; page < maxPages && url; page++) {
+    const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
       cache: 'no-store',
     })
-    if (!response.ok) return []
-  }
-  const data = await response.json()
+    if (!response.ok) break
+    const data = await response.json()
 
-  const buckets = {}
-  for (const point of data.dataPoints ?? []) {
-    const civilStart = point.steps?.interval?.civilStartTime
-    const count = Number(point.steps?.count ?? 0)
-    if (!civilStart?.date?.year || Number(civilStart.date.year) < 2000 || count <= 0) continue
-    const day = `${civilStart.date.year}-${String(civilStart.date.month).padStart(2, '0')}-${String(civilStart.date.day).padStart(2, '0')}`
-    if (day < since) continue
-    const hour = civilStart.time?.hours ?? 0
-    const bucketKey = `${day}|${hour}`
-    buckets[bucketKey] = (buckets[bucketKey] ?? 0) + count
+    let reachedCutoff = false
+    for (const point of data.dataPoints ?? []) {
+      const interval = point.steps?.interval
+      const startTime = interval?.startTime
+      const count = Number(point.steps?.count ?? 0)
+      if (!startTime || count <= 0) continue
+      if (new Date(startTime).getTime() < cutoffMs) {
+        reachedCutoff = true
+        continue
+      }
+      const civilStart = interval.civilStartTime
+      samples.push({
+        started_at: startTime,
+        ended_at: interval.endTime ?? null,
+        count,
+        day: civilKey(civilStart?.date),
+        hour: civilStart?.time?.hours ?? 0,
+      })
+    }
+    if (reachedCutoff) break
+    url = data.nextPageToken ? `${base}&pageToken=${data.nextPageToken}` : null
   }
-  return Object.entries(buckets).map(([bucketKey, steps]) => {
-    const [day, hour] = bucketKey.split('|')
+  return samples
+}
+
+// Aggregate raw step samples into hourly buckets: [{ day, hour, steps }].
+export function hourlyFromSamples(samples) {
+  const buckets = {}
+  for (const sample of samples) {
+    if (!sample.day) continue
+    const key = `${sample.day}|${sample.hour}`
+    buckets[key] = (buckets[key] ?? 0) + sample.count
+  }
+  return Object.entries(buckets).map(([key, steps]) => {
+    const [day, hour] = key.split('|')
     return { day, hour: Number(hour), steps }
   })
 }
