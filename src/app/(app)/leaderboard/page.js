@@ -34,9 +34,10 @@ export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Leaderboard — KyaReFitting aa' }
 
 const PERIODS = [
-  { key: 'today', label: 'Today', days: 1 },
-  { key: '7d', label: '7D', days: 7 },
-  { key: 'month', label: 'This month', month: true },
+  { key: 'today', label: 'Today', since: () => dkey(0), until: () => dkey(0) },
+  { key: 'yesterday', label: 'Yesterday', since: () => dkey(1), until: () => dkey(1) },
+  { key: '7d', label: '7D', since: () => dkey(6), until: () => dkey(0) },
+  { key: 'month', label: 'This month', since: () => istMonthStart(), until: () => dkey(0) },
 ]
 
 export default async function LeaderboardPage({ searchParams }) {
@@ -48,10 +49,11 @@ export default async function LeaderboardPage({ searchParams }) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // "This month" = from the 1st of the current IST month; otherwise a rolling
-  // N-day window. Aggregation happens in Postgres, ordered by total desc.
-  const since = period.month ? istMonthStart() : dkey(period.days - 1)
-  const { data: rows } = await supabase.rpc('leaderboard_since', { since_date: since })
+  // Aggregation happens in Postgres over the period's [since, until] window.
+  const { data: rows } = await supabase.rpc('leaderboard_between', {
+    since_date: period.since(),
+    until_date: period.until(),
+  })
 
   const ranked = (rows ?? []).map((row, i) => ({
     id: row.id,
