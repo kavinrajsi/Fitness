@@ -30,7 +30,7 @@ const chartConfig = {
 }
 
 // "Mon D" axis/tooltip label for a date-only value.
-const fmtDay = (value) =>
+const formatDayLabel = (value) =>
   value
     ? new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : ''
@@ -42,7 +42,7 @@ export function StepsAreaChart({ data }) {
       <CardHeader>
         <CardTitle>Daily steps</CardTitle>
         <CardDescription>
-          {data.length ? `${fmtDay(data[0].date)} – ${fmtDay(data[data.length - 1].date)}` : 'No data'}
+          {data.length ? `${formatDayLabel(data[0].date)} – ${formatDayLabel(data[data.length - 1].date)}` : 'No data'}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -55,11 +55,11 @@ export function StepsAreaChart({ data }) {
               axisLine={false}
               tickMargin={8}
               minTickGap={24}
-              tickFormatter={fmtDay}
+              tickFormatter={formatDayLabel}
             />
             <ChartTooltip
               cursor={false}
-              content={<ChartTooltipContent labelFormatter={fmtDay} />}
+              content={<ChartTooltipContent labelFormatter={formatDayLabel} />}
             />
             <Area
               dataKey="steps"

@@ -6,8 +6,10 @@ const future = () => new Date(Date.now() + 60000).toISOString()
 const past = () => new Date(Date.now() - 60000).toISOString()
 const s256 = (v) => crypto.createHash('sha256').update(v).digest('base64url')
 
-// Fake service: select→eq→maybeSingle yields a preset row per table; update/insert no-op.
-function fakeService({ codeRow = null, accessRow = null } = {}) {
+// Fake service: select→eq→maybeSingle yields a preset row per table; insert no-ops.
+// The atomic single-use consume uses update→eq→is→select→maybeSingle; `consumeResult`
+// controls what that returns (truthy = we won the race; null = already consumed).
+function fakeService({ codeRow = null, accessRow = null, consumeResult = { code_hash: 'h' } } = {}) {
   return {
     from(table) {
       return {
@@ -23,7 +25,13 @@ function fakeService({ codeRow = null, accessRow = null } = {}) {
             }),
           }),
         }),
-        update: () => ({ eq: async () => ({ error: null }) }),
+        update: () => ({
+          eq: () => ({
+            is: () => ({
+              select: () => ({ maybeSingle: async () => ({ data: consumeResult }) }),
+            }),
+          }),
+        }),
         insert: async () => ({ error: null }),
       }
     },
@@ -36,8 +44,9 @@ describe('pkceMatches', () => {
     expect(pkceMatches(v, s256(v), 'S256')).toBe(true)
     expect(pkceMatches('wrong', s256(v), 'S256')).toBe(false)
   })
-  it('rejects unknown methods', () => {
+  it('rejects unknown methods and the insecure plain method', () => {
     expect(pkceMatches('x', 'x', 'nope')).toBe(false)
+    expect(pkceMatches('x', 'x', 'plain')).toBe(false) // plain is no longer accepted
   })
 })
 
@@ -68,6 +77,11 @@ describe('exchangeAuthorizationCode', () => {
   })
   it('rejects an already-consumed code', async () => {
     const res = await exchangeAuthorizationCode(fakeService({ codeRow: { ...base(), consumed_at: future() } }), args)
+    expect(res.error).toBe('invalid_grant')
+  })
+  it('rejects when a concurrent exchange consumed the code first (atomic guard)', async () => {
+    // Early check passes (consumed_at null) but the atomic consume updates no row → loser.
+    const res = await exchangeAuthorizationCode(fakeService({ codeRow: base(), consumeResult: null }), args)
     expect(res.error).toBe('invalid_grant')
   })
   it('rejects a redirect_uri mismatch', async () => {

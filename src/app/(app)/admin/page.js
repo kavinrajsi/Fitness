@@ -34,7 +34,7 @@ export const metadata = {
 }
 
 // Short "MMM D, YY" date, or an em dash when null.
-function fmtDate(value) {
+function formatDate(value) {
   return value ? new Date(value).toLocaleDateString('en-US', { year: '2-digit', month: 'short', day: 'numeric' }) : '—'
 }
 
@@ -211,7 +211,7 @@ export default async function AdminPage() {
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{row.days}</TableCell>
                       <TableCell className="text-muted-foreground text-xs">
-                        {fmtDate(row.minDate)} – {fmtDate(row.maxDate)}
+                        {formatDate(row.minDate)} – {formatDate(row.maxDate)}
                       </TableCell>
                       <TableCell className="text-right font-medium tabular-nums">
                         {row.totalSteps.toLocaleString()}
@@ -226,7 +226,7 @@ export default async function AdminPage() {
                         {row.peakHour != null ? formatHour(row.peakHour) : '—'}
                       </TableCell>
                       <TableCell className="text-muted-foreground text-xs">
-                        {fmtDate(p.details_synced_at)}
+                        {formatDate(p.details_synced_at)}
                       </TableCell>
                     </TableRow>
                   )

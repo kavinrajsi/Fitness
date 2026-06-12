@@ -7,6 +7,7 @@
  * only their last four digits are stored, so the full token is shown just once at mint.
  */
 import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import {
   Card,
@@ -29,6 +30,7 @@ export default async function AiPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  if (!user) redirect('/signin')
 
   const { data: tokens } = await supabase
     .from('api_tokens')

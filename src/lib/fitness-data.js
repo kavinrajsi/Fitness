@@ -36,8 +36,8 @@ export async function getProfileSummary(service, userId) {
 
   let bmi = null
   if (p.height_cm && p.weight_kg) {
-    const m = p.height_cm / 100
-    bmi = Math.round((p.weight_kg / (m * m)) * 10) / 10
+    const heightMeters = p.height_cm / 100
+    bmi = Math.round((p.weight_kg / (heightMeters * heightMeters)) * 10) / 10
   }
   return {
     name: p.full_name,

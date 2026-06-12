@@ -31,7 +31,7 @@ export const metadata = {
 }
 
 // Date+time in IST (Asia/Kolkata), or an em dash when null.
-const fmtDateTime = (value) =>
+const formatDateTime = (value) =>
   value
     ? new Date(value).toLocaleString('en-US', {
         month: 'short',
@@ -88,7 +88,7 @@ export default async function AdminNotificationsPage() {
                   <TableRow key={log.id}>
                     <TableCell className="text-muted-foreground whitespace-nowrap text-xs">
                       <Link href={`/admin/notifications/${log.id}`} className="hover:underline">
-                        {fmtDateTime(log.created_at)}
+                        {formatDateTime(log.created_at)}
                       </Link>
                     </TableCell>
                     <TableCell>

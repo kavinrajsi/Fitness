@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/chart'
 
 // Shared axis/tooltip date formatter, e.g. "Jan 5".
-const fmtDay = (value) =>
+const formatDayLabel = (value) =>
   value ? new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
 
 // Daily steps as a filled area; `data` is [{ date, steps }].
@@ -30,9 +30,9 @@ export function StepsAreaChart({ data }) {
           axisLine={false}
           tickMargin={8}
           minTickGap={24}
-          tickFormatter={fmtDay}
+          tickFormatter={formatDayLabel}
         />
-        <ChartTooltip cursor={false} content={<ChartTooltipContent labelFormatter={fmtDay} />} />
+        <ChartTooltip cursor={false} content={<ChartTooltipContent labelFormatter={formatDayLabel} />} />
         <Area
           dataKey="steps"
           type="natural"
@@ -78,9 +78,9 @@ export function MetricTrendChart({ data, dataKey, label, color = 'var(--chart-2)
           axisLine={false}
           tickMargin={8}
           minTickGap={24}
-          tickFormatter={fmtDay}
+          tickFormatter={formatDayLabel}
         />
-        <ChartTooltip cursor={false} content={<ChartTooltipContent labelFormatter={fmtDay} />} />
+        <ChartTooltip cursor={false} content={<ChartTooltipContent labelFormatter={formatDayLabel} />} />
         <Line
           dataKey={dataKey}
           type="monotone"

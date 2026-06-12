@@ -6,6 +6,7 @@
  * force-dynamic, own-row RLS. ?health=connected|connect_failed shows the result
  * banner after returning from the incremental Health OAuth flow.
  */
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getUserDetails } from '@/lib/get-user-details'
 import { signOut } from '../../actions/auth'
@@ -36,6 +37,7 @@ export default async function ProfilePage({ searchParams }) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  if (!user) redirect('/signin')
   const { data: profile } = await supabase
     .from('profiles')
     .select('daily_step_goal')

@@ -41,9 +41,9 @@ export const metadata = {
 }
 
 // Short date and date+time formatters; timestamps render in IST (Asia/Kolkata).
-const fmtDate = (value) =>
+const formatDate = (value) =>
   value ? new Date(value).toLocaleDateString('en-US', { year: '2-digit', month: 'short', day: 'numeric' }) : '—'
-const fmtDateTime = (value) =>
+const formatDateTime = (value) =>
   value
     ? new Date(value).toLocaleString('en-US', {
         month: 'short',
@@ -146,7 +146,7 @@ export default async function AdminUserPage({ params }) {
     ['Gender', dash(profile.gender)],
     ['Birthday', dash(profile.birthday)],
     ['Health user id', dash(profile.google_health_user_id)],
-    ['Last sync', fmtDate(profile.details_synced_at)],
+    ['Last sync', formatDate(profile.details_synced_at)],
     ['User id', profile.id],
   ]
 
@@ -189,7 +189,7 @@ export default async function AdminUserPage({ params }) {
           <CardTitle>Profile</CardTitle>
           <CardDescription>
             {dailyRows.length
-              ? `${fmtDate(dailyRows[dailyRows.length - 1].date)} – ${fmtDate(dailyRows[0].date)}`
+              ? `${formatDate(dailyRows[dailyRows.length - 1].date)} – ${formatDate(dailyRows[0].date)}`
               : 'No data'}
           </CardDescription>
         </CardHeader>
@@ -231,7 +231,7 @@ export default async function AdminUserPage({ params }) {
                         {device.user_agent ?? '—'}
                       </TableCell>
                       <TableCell className="text-muted-foreground whitespace-nowrap text-xs">
-                        {fmtDate(device.created_at)}
+                        {formatDate(device.created_at)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -331,7 +331,7 @@ export default async function AdminUserPage({ params }) {
                   <TableRow key={workout.source_id}>
                     <TableCell className="font-medium">{workout.type ?? 'Workout'}</TableCell>
                     <TableCell className="text-muted-foreground">
-                      {fmtDateTime(workout.started_at)}
+                      {formatDateTime(workout.started_at)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {dash(workout.duration_min, ' min')}
@@ -388,7 +388,7 @@ export default async function AdminUserPage({ params }) {
           <CardDescription>
             {(rawCount ?? 0).toLocaleString()} samples
             {rawCount
-              ? ` · ${fmtDate(rawOldest?.[0]?.started_at)} – ${fmtDate(rawSamples?.[0]?.started_at)}`
+              ? ` · ${formatDate(rawOldest?.[0]?.started_at)} – ${formatDate(rawSamples?.[0]?.started_at)}`
               : ''}
           </CardDescription>
         </CardHeader>
@@ -408,7 +408,7 @@ export default async function AdminUserPage({ params }) {
                   {(rawSamples ?? []).map((sample) => (
                     <TableRow key={sample.started_at}>
                       <TableCell className="text-muted-foreground text-xs">
-                        {fmtDateTime(sample.started_at)}
+                        {formatDateTime(sample.started_at)}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{dash(sample.count)}</TableCell>
                     </TableRow>

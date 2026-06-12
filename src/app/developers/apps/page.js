@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic'
 
 export const metadata = { title: 'Developer apps — KyaReFitting aa' }
 
-const fmtDate = (v) =>
+const formatDate = (v) =>
   v
     ? new Date(v).toLocaleDateString('en-IN', {
         timeZone: 'Asia/Kolkata',
@@ -111,7 +111,7 @@ export default async function DeveloperAppsPage() {
                       </span>
                     </p>
                     <p className="truncate font-mono text-xs text-muted-foreground">{c.client_id}</p>
-                    <p className="text-xs text-muted-foreground">Added {fmtDate(c.created_at)}</p>
+                    <p className="text-xs text-muted-foreground">Added {formatDate(c.created_at)}</p>
                   </div>
                   <form action={deleteOAuthClient}>
                     <input type="hidden" name="client_id" value={c.client_id} />

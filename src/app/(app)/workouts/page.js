@@ -3,6 +3,7 @@
  *
  * force-dynamic, own-row RLS; a simple newest-first table capped at 100 rows.
  */
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import {
   Card,
@@ -25,7 +26,7 @@ export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Workouts — KyaReFitting aa' }
 
 // "Mon D" for a session's start timestamp, or an em dash when missing.
-function fmtDate(iso) {
+function formatDate(iso) {
   return iso
     ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : '—'
@@ -37,6 +38,7 @@ export default async function WorkoutsPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  if (!user) redirect('/signin')
 
   const { data: workouts } = await supabase
     .from('workouts')
@@ -75,7 +77,7 @@ export default async function WorkoutsPage() {
               {list.map((workout) => (
                 <TableRow key={workout.source_id}>
                   <TableCell className="font-medium">{workout.type ?? 'Workout'}</TableCell>
-                  <TableCell className="text-muted-foreground">{fmtDate(workout.started_at)}</TableCell>
+                  <TableCell className="text-muted-foreground">{formatDate(workout.started_at)}</TableCell>
                   <TableCell className="text-right tabular-nums">
                     {workout.duration_min != null ? `${workout.duration_min} min` : '—'}
                   </TableCell>

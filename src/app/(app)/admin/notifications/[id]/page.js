@@ -35,7 +35,7 @@ export const metadata = {
 }
 
 // Date+time in IST (Asia/Kolkata), or an em dash when null.
-const fmtDateTime = (value) =>
+const formatDateTime = (value) =>
   value
     ? new Date(value).toLocaleString('en-US', {
         month: 'short',
@@ -98,7 +98,7 @@ export default async function AdminNotificationPage({ params }) {
           <CardTitle>{log.title}</CardTitle>
           <CardDescription>
             <Badge variant="outline" className="mr-2">{log.source ?? '—'}</Badge>
-            {fmtDateTime(log.created_at)} · {log.sent_count} sent · {log.failed_count} failed
+            {formatDateTime(log.created_at)} · {log.sent_count} sent · {log.failed_count} failed
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -145,7 +145,7 @@ export default async function AdminNotificationPage({ params }) {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-muted-foreground text-xs">
-                          {fmtDateTime(recipient.created_at)}
+                          {formatDateTime(recipient.created_at)}
                         </TableCell>
                       </TableRow>
                     )

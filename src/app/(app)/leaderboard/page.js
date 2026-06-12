@@ -8,6 +8,7 @@
  * leaderboard-safe fields (display name, avatar, step total) are returned.
  */
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { dkey, istMonthStart } from '@/lib/date-utils'
 import {
@@ -51,6 +52,7 @@ export default async function LeaderboardPage({ searchParams }) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  if (!user) redirect('/signin')
 
   // Aggregation happens in Postgres over the period's [since, until] window.
   const since = period.since()
@@ -60,9 +62,9 @@ export default async function LeaderboardPage({ searchParams }) {
     until_date: until,
   })
 
-  const fmtDay = (d) =>
+  const formatDayLabel = (d) =>
     new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
-  const dateLabel = since === until ? fmtDay(since) : `${fmtDay(since)} – ${fmtDay(until)}`
+  const dateLabel = since === until ? formatDayLabel(since) : `${formatDayLabel(since)} – ${formatDayLabel(until)}`
 
   // RPC returns rows pre-sorted by steps desc; rank is just the 1-based position.
   const ranked = (rows ?? []).map((row, i) => ({

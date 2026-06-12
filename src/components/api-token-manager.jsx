@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 
 // Format a timestamp as an IST date (the app is IST throughout).
-function fmtDate(value) {
+function formatDate(value) {
   if (!value) return null
   return new Date(value).toLocaleDateString('en-IN', {
     timeZone: 'Asia/Kolkata',
@@ -77,8 +77,8 @@ export function ApiTokenManager({ tokens = [], connectUrl }) {
                   </Badge>
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Added {fmtDate(token.created_at)}
-                  {token.last_used_at ? ` · last used ${fmtDate(token.last_used_at)}` : ' · never used'}
+                  Added {formatDate(token.created_at)}
+                  {token.last_used_at ? ` · last used ${formatDate(token.last_used_at)}` : ' · never used'}
                 </p>
               </div>
               <form action={revokeApiToken}>

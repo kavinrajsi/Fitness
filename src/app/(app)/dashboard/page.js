@@ -18,6 +18,7 @@ import {
   HeartIcon,
   ZapIcon,
 } from 'lucide-react'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getUserDetails } from '@/lib/get-user-details'
 import { computeGamification } from '@/lib/gamification'
@@ -52,7 +53,7 @@ const RANGES = [
 ]
 
 // Percent change current-vs-previous; +100% when there's no prior value to compare.
-const pct = (current, previous) =>
+const percentChange = (current, previous) =>
   previous > 0 ? Math.round(((current - previous) / previous) * 100) : current > 0 ? 100 : 0
 
 // Loads the user's goal + all daily/hourly metrics in one round-trip, then derives
@@ -65,6 +66,7 @@ export default async function DashboardPage({ searchParams }) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  if (!user) redirect('/signin')
 
   const [
     { data: profile },
@@ -96,32 +98,32 @@ export default async function DashboardPage({ searchParams }) {
   // Index steps by IST day-key so the sum/latest helpers can look up by days-ago.
   const stepsByDate = {}
   for (const metric of dailyMetrics ?? []) stepsByDate[metric.date] = metric.steps ?? 0
-  const sum = (fromDaysAgo, toDaysAgo) => {
+  const sumStepsInRange = (fromDaysAgo, toDaysAgo) => {
     let total = 0
     for (let i = fromDaysAgo; i <= toDaysAgo; i++) total += stepsByDate[dkey(i)] ?? 0
     return total
   }
   const today = stepsByDate[dkey(0)] ?? 0
   const yesterday = stepsByDate[dkey(1)] ?? 0
-  const last7 = sum(0, 6)
-  const prev7 = sum(7, 13)
+  const last7 = sumStepsInRange(0, 6)
+  const prev7 = sumStepsInRange(7, 13)
   const avg7 = Math.round(last7 / 7)
 
   // Most-recent value for sparse daily metrics (these aren't recorded every day).
-  const latest = (field) => {
+  const latestMetric = (field) => {
     const valueByDate = {}
     for (const metric of dailyMetrics ?? [])
       if (metric[field] != null) valueByDate[metric.date] = metric[field]
     for (let i = 0; i < 90; i++) if (valueByDate[dkey(i)] != null) return valueByDate[dkey(i)]
     return null
   }
-  const restingHr = latest('resting_hr')
-  const hydrationMl = latest('hydration_ml')
-  const vo2Max = latest('vo2_max')
-  const spo2 = latest('spo2')
-  const hrv = latest('hrv_ms')
+  const restingHr = latestMetric('resting_hr')
+  const hydrationMl = latestMetric('hydration_ml')
+  const vo2Max = latestMetric('vo2_max')
+  const spo2 = latestMetric('spo2')
+  const hrv = latestMetric('hrv_ms')
   const activeMin = (dailyMetrics ?? []).find((metric) => metric.date === dkey(0))?.active_min ?? null
-  const totalCalories = latest('total_calories')
+  const totalCalories = latestMetric('total_calories')
   const heartRateRow = [...(dailyMetrics ?? [])]
     .sort((a, b) => b.date.localeCompare(a.date))
     .find((metric) => metric.hr_avg != null)
@@ -187,14 +189,14 @@ export default async function DashboardPage({ searchParams }) {
         <Metric
           label="Steps today"
           value={today.toLocaleString()}
-          trend={pct(today, yesterday)}
+          trend={percentChange(today, yesterday)}
           foot={today >= goal ? 'Goal reached 🎉' : 'Keep moving'}
           note={`${Math.round(game.pct * 100)}% of ${goal.toLocaleString()} goal`}
         />
         <Metric
           label="This week"
           value={last7.toLocaleString()}
-          trend={pct(last7, prev7)}
+          trend={percentChange(last7, prev7)}
           foot="vs. previous 7 days"
           note={`${avg7.toLocaleString()} avg/day`}
         />

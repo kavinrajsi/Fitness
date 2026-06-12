@@ -12,6 +12,7 @@ import { z } from 'zod'
 import { createServiceClient } from '@/lib/supabase/service'
 import { resolveToken } from '@/lib/api-tokens'
 import { resolveAccessToken } from '@/lib/oauth'
+import { enforceRateLimit } from '@/lib/rate-limit'
 import {
   getProfileSummary,
   getDailyMetrics,
@@ -30,9 +31,26 @@ function result(data) {
   return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] }
 }
 
+// Per-tool-call rate limit, sharing the SAME `tok:<userId>` bucket as the REST API
+// (src/lib/api-auth.js) so MCP can't bypass the per-user limit the v1 API enforces.
+// `extra` is always the last handler arg (tools with an inputSchema get (args, extra)).
+function rateLimited(handler) {
+  return async (...args) => {
+    const userId = args[args.length - 1]?.authInfo?.extra?.userId
+    const rl = await enforceRateLimit(createServiceClient(), `tok:${userId}`)
+    if (!rl.allowed) return result({ error: 'Rate limited — too many requests. Slow down.' })
+    return handler(...args)
+  }
+}
+
 const handler = createMcpHandler(
   (server) => {
-    server.registerTool(
+    // Route every tool registration through the rate-limit wrapper. `.bind` keeps the
+    // original method (and dodges the replace that points the call sites here).
+    const baseRegister = server.registerTool.bind(server)
+    const register = (name, def, handler) => baseRegister(name, def, rateLimited(handler))
+
+    register(
       'get_profile',
       {
         description:
@@ -46,7 +64,7 @@ const handler = createMcpHandler(
       }
     )
 
-    server.registerTool(
+    register(
       'get_daily_metrics',
       {
         description:
@@ -60,7 +78,7 @@ const handler = createMcpHandler(
       }
     )
 
-    server.registerTool(
+    register(
       'get_step_stats',
       {
         description:
@@ -73,7 +91,7 @@ const handler = createMcpHandler(
       }
     )
 
-    server.registerTool(
+    register(
       'get_streaks_and_achievements',
       {
         description:
@@ -86,7 +104,7 @@ const handler = createMcpHandler(
       }
     )
 
-    server.registerTool(
+    register(
       'get_activity_heatmap',
       {
         description:
@@ -99,7 +117,7 @@ const handler = createMcpHandler(
       }
     )
 
-    server.registerTool(
+    register(
       'get_workouts',
       {
         description:
@@ -113,7 +131,7 @@ const handler = createMcpHandler(
       }
     )
 
-    server.registerTool(
+    register(
       'get_leaderboard',
       {
         description:

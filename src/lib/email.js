@@ -20,7 +20,7 @@ export function isEmailConfigured() {
   return Boolean(process.env.ZEPTOMAIL_TOKEN && process.env.ZEPTOMAIL_FROM)
 }
 
-async function safeText(response) {
+async function safeResponseText(response) {
   try {
     return await response.text()
   } catch {
@@ -58,7 +58,7 @@ export async function sendEmail({ to, subject, html, text }) {
       cache: 'no-store',
     })
     if (!response.ok) {
-      console.error('[email] ZeptoMail send failed:', response.status, await safeText(response))
+      console.error('[email] ZeptoMail send failed:', response.status, await safeResponseText(response))
       return false
     }
     return true

@@ -63,24 +63,28 @@ async function dailyRollUp(token, dataType, startDate, endDate, { onError } = {}
 }
 
 // Some rollups cap the query window (e.g. heart-rate / total-calories at 14 days).
-// Paginate the [start, end) range in <= chunkDays windows and merge the points. `ok`
-// flips true once any chunk succeeds, so callers can tell a real (if partial) result
-// apart from a wholesale fetch failure and avoid clobbering stored values.
+// Paginate the [start, end) range in <= chunkDays windows and merge the points. `ok` is
+// true only when EVERY chunk succeeded: a partial failure can't be told apart from "no data"
+// per date, so the caller must treat the whole window as failed and drop the metric (leaving
+// stored values untouched) rather than clobber the failed dates with null.
 async function chunkedRollUp(token, dataType, start, end, chunkDays = 14, { onError } = {}) {
   const rollupDataPoints = []
-  let ok = false
+  let ok = true
+  let attempted = false
   let cursor = start
   while (cursor < end) {
+    attempted = true
     const next = addDays(cursor, chunkDays)
     const windowEnd = next < end ? next : end
     const data = await dailyRollUp(token, dataType, cursor, windowEnd, { onError })
     if (data) {
-      ok = true
       if (data.rollupDataPoints) rollupDataPoints.push(...data.rollupDataPoints)
+    } else {
+      ok = false
     }
     cursor = windowEnd
   }
-  return { rollupDataPoints, ok }
+  return { rollupDataPoints, ok: attempted && ok }
 }
 
 // GET list of individual data points for a data type (used where dailyRollUp is
@@ -115,7 +119,7 @@ export async function getBodyMetrics(token) {
   let latestWeightKey = ''
   for (const point of weightData?.rollupDataPoints ?? []) {
     const weightGrams = point.weight?.weightGramsAvg
-    const dateKey = pointDate(point) ?? ''
+    const dateKey = pointDateKey(point) ?? ''
     if (weightGrams != null && dateKey >= latestWeightKey) {
       latestWeightG = weightGrams
       latestWeightKey = dateKey
@@ -170,7 +174,7 @@ export async function getHealthUserId(token) {
 
 // Extract a YYYY-MM-DD key from a rollup point's civilStartTime ({date}) or
 // startTime (string), depending on which the API returns.
-function pointDate(point) {
+function pointDateKey(point) {
   const civilDate = point?.civilStartTime?.date ?? point?.civilStartTime
   if (civilDate?.year != null) {
     return `${civilDate.year}-${String(civilDate.month).padStart(2, '0')}-${String(civilDate.day).padStart(2, '0')}`
@@ -194,7 +198,7 @@ export async function getStepHistory(token, months = 24) {
       isoDate(-(offsetDays - 90))
     )
     for (const point of data?.rollupDataPoints ?? []) {
-      const dateKey = pointDate(point)
+      const dateKey = pointDateKey(point)
       if (dateKey) stepsByDate[dateKey] = Number(point.steps?.countSum ?? 0)
     }
   }
@@ -283,7 +287,7 @@ export async function getDailySteps(token, days = 90) {
   // Map any returned rollups by date. The steps rollup value is { steps: { countSum } }.
   const byDate = {}
   for (const point of data.rollupDataPoints ?? []) {
-    const dateKey = pointDate(point)
+    const dateKey = pointDateKey(point)
     if (dateKey) byDate[dateKey] = Number(point.steps?.countSum ?? 0)
   }
 
@@ -333,7 +337,7 @@ export async function getDailyMetrics(token, days = 90, { onError } = {}) {
   const start = isoDate(-(days - 1))
   const end = isoDate(1)
 
-  const [stepsD, calD, distD, totalCalD, hrD, rhrD, sleepD, hydD, amD, vo2D, spo2D, hrvD] =
+  const [stepsData, caloriesData, distanceData, totalCaloriesData, heartRateData, restingHrData, sleepData, hydrationData, activeMinutesData, vo2MaxData, spo2Data, hrvData] =
     await Promise.all([
       dailyRollUp(token, 'steps', start, end, { onError }),
       dailyRollUp(token, 'active-energy-burned', start, end, { onError }),
@@ -341,7 +345,7 @@ export async function getDailyMetrics(token, days = 90, { onError } = {}) {
       chunkedRollUp(token, 'total-calories', start, end, 14, { onError }),
       chunkedRollUp(token, 'heart-rate', start, end, 14, { onError }),
       listPoints(token, 'daily-resting-heart-rate', 200, { onError }),
-      listSleep(token, days, { onError }),
+      fetchSleepSessions(token, days, { onError }),
       listPoints(token, 'hydration-log', 200, { onError }),
       listPoints(token, 'active-minutes', 1000, { onError }),
       listPoints(token, 'daily-vo2-max', 200, { onError }),
@@ -369,22 +373,22 @@ export async function getDailyMetrics(token, days = 90, { onError } = {}) {
       hrv_ms: null,
     })
 
-  for (const point of stepsD?.rollupDataPoints ?? []) {
-    const dateKey = pointDate(point)
+  for (const point of stepsData?.rollupDataPoints ?? []) {
+    const dateKey = pointDateKey(point)
     if (dateKey) row(dateKey).steps = Number(point.steps?.countSum ?? 0)
   }
-  for (const point of calD?.rollupDataPoints ?? []) {
-    const dateKey = pointDate(point)
+  for (const point of caloriesData?.rollupDataPoints ?? []) {
+    const dateKey = pointDateKey(point)
     if (dateKey) row(dateKey).calories = Math.round(Number(point.activeEnergyBurned?.kcalSum ?? 0))
   }
-  for (const point of totalCalD?.rollupDataPoints ?? []) {
-    const dateKey = pointDate(point)
+  for (const point of totalCaloriesData?.rollupDataPoints ?? []) {
+    const dateKey = pointDateKey(point)
     if (dateKey && point.totalCalories?.kcalSum != null) {
       row(dateKey).total_calories = Math.round(Number(point.totalCalories.kcalSum))
     }
   }
-  for (const point of hrD?.rollupDataPoints ?? []) {
-    const dateKey = pointDate(point)
+  for (const point of heartRateData?.rollupDataPoints ?? []) {
+    const dateKey = pointDateKey(point)
     const heartRate = point.heartRate
     if (!dateKey || !heartRate) continue
     if (heartRate.beatsPerMinuteAvg != null)
@@ -392,13 +396,13 @@ export async function getDailyMetrics(token, days = 90, { onError } = {}) {
     if (heartRate.beatsPerMinuteMin != null) row(dateKey).hr_min = Math.round(Number(heartRate.beatsPerMinuteMin))
     if (heartRate.beatsPerMinuteMax != null) row(dateKey).hr_max = Math.round(Number(heartRate.beatsPerMinuteMax))
   }
-  for (const point of distD?.rollupDataPoints ?? []) {
-    const dateKey = pointDate(point)
+  for (const point of distanceData?.rollupDataPoints ?? []) {
+    const dateKey = pointDateKey(point)
     if (dateKey) row(dateKey).distance_km = Math.round((Number(point.distance?.millimetersSum ?? 0) / 1e6) * 100) / 100
   }
   // Resting heart rate — the dedicated daily type (real RHR, not a proxy). List only;
   // value at dailyRestingHeartRate.beatsPerMinute, keyed by its civil date.
-  for (const point of rhrD?.dataPoints ?? []) {
+  for (const point of restingHrData?.dataPoints ?? []) {
     const restingHeartRate = point.dailyRestingHeartRate
     if (restingHeartRate?.beatsPerMinute == null || !restingHeartRate.date?.year || Number(restingHeartRate.date.year) < 2000) continue
     const dateKey = `${restingHeartRate.date.year}-${String(restingHeartRate.date.month).padStart(2, '0')}-${String(restingHeartRate.date.day).padStart(2, '0')}`
@@ -406,7 +410,7 @@ export async function getDailyMetrics(token, days = 90, { onError } = {}) {
   }
 
   // Sleep sessions → minutes per night, keyed by the IST date the user woke up.
-  for (const point of sleepD?.dataPoints ?? []) {
+  for (const point of sleepData?.dataPoints ?? []) {
     const interval = point.sleep?.interval
     const startTime = interval?.startTime ?? interval?.start_time
     const endTime = interval?.endTime ?? interval?.end_time
@@ -420,7 +424,7 @@ export async function getDailyMetrics(token, days = 90, { onError } = {}) {
 
   // Hydration (nutrition scope) — sum logged volume per day → ml. Verified shape:
   // hydrationLog.amountConsumed.milliliters, keyed by the interval's civil start date.
-  for (const point of hydD?.dataPoints ?? []) {
+  for (const point of hydrationData?.dataPoints ?? []) {
     const hydrationLog = point.hydrationLog
     const milliliters = Number(hydrationLog?.amountConsumed?.milliliters ?? 0)
     if (!(milliliters > 0)) continue
@@ -437,7 +441,7 @@ export async function getDailyMetrics(token, days = 90, { onError } = {}) {
   }
 
   // Active minutes — sum the per-activity-level minutes for each (civil) day.
-  for (const point of amD?.dataPoints ?? []) {
+  for (const point of activeMinutesData?.dataPoints ?? []) {
     const activeMinutes = point.activeMinutes
     const dateKey = civilKey(activeMinutes?.interval?.civilStartTime?.date)
     if (!dateKey) continue
@@ -447,14 +451,14 @@ export async function getDailyMetrics(token, days = 90, { onError } = {}) {
   }
 
   // VO2 max — daily cardio-fitness value.
-  for (const point of vo2D?.dataPoints ?? []) {
+  for (const point of vo2MaxData?.dataPoints ?? []) {
     const vo2Max = point.dailyVo2Max
     const dateKey = civilKey(vo2Max?.date)
     if (dateKey && vo2Max.vo2Max != null) row(dateKey).vo2_max = Math.round(Number(vo2Max.vo2Max) * 10) / 10
   }
 
   // SpO2 (defensive — no data in test account; field name unverified).
-  for (const point of spo2D?.dataPoints ?? []) {
+  for (const point of spo2Data?.dataPoints ?? []) {
     const oxygenSaturation = point.dailyOxygenSaturation
     const dateKey = civilKey(oxygenSaturation?.date)
     const percentage = oxygenSaturation?.averagePercentage ?? oxygenSaturation?.percentage ?? oxygenSaturation?.avgPercentage
@@ -462,7 +466,7 @@ export async function getDailyMetrics(token, days = 90, { onError } = {}) {
   }
 
   // HRV (defensive — no data in test account; field name unverified).
-  for (const point of hrvD?.dataPoints ?? []) {
+  for (const point of hrvData?.dataPoints ?? []) {
     const heartRateVariability = point.dailyHeartRateVariability
     const dateKey = civilKey(heartRateVariability?.date)
     const hrvMs = heartRateVariability?.heartRateVariabilityMillis ?? heartRateVariability?.hrvMillis ?? heartRateVariability?.millis ?? heartRateVariability?.rmssd
@@ -476,18 +480,18 @@ export async function getDailyMetrics(token, days = 90, { onError } = {}) {
   // window, so drop the column(s) it owns from every row — leaving them out of the upsert
   // payload entirely, so Postgres ON CONFLICT preserves the existing value.
   const ownedColumns = [
-    [stepsD, ['steps']],
-    [calD, ['calories']],
-    [distD, ['distance_km']],
-    [totalCalD?.ok ? totalCalD : null, ['total_calories']],
-    [hrD?.ok ? hrD : null, ['hr_avg', 'hr_min', 'hr_max']],
-    [rhrD, ['resting_hr']],
-    [sleepD, ['sleep_min']],
-    [hydD, ['hydration_ml']],
-    [amD, ['active_min']],
-    [vo2D, ['vo2_max']],
-    [spo2D, ['spo2']],
-    [hrvD, ['hrv_ms']],
+    [stepsData, ['steps']],
+    [caloriesData, ['calories']],
+    [distanceData, ['distance_km']],
+    [totalCaloriesData?.ok ? totalCaloriesData : null, ['total_calories']],
+    [heartRateData?.ok ? heartRateData : null, ['hr_avg', 'hr_min', 'hr_max']],
+    [restingHrData, ['resting_hr']],
+    [sleepData, ['sleep_min']],
+    [hydrationData, ['hydration_ml']],
+    [activeMinutesData, ['active_min']],
+    [vo2MaxData, ['vo2_max']],
+    [spo2Data, ['spo2']],
+    [hrvData, ['hrv_ms']],
   ]
   for (const [result, cols] of ownedColumns) {
     if (result == null) for (const dayRow of rows) for (const col of cols) delete dayRow[col]
@@ -498,7 +502,7 @@ export async function getDailyMetrics(token, days = 90, { onError } = {}) {
 
 // Sleep sessions for the last `days` days (sleep doesn't support dailyRollUp).
 // Filters by the documented member sleep.interval.end_time.
-async function listSleep(token, days, { onError } = {}) {
+async function fetchSleepSessions(token, days, { onError } = {}) {
   const since = isoDate(-(days - 1))
   const params = new URLSearchParams({ pageSize: '200' })
   params.set('filter', `sleep.interval.end_time >= "${since}T00:00:00Z"`)
@@ -514,7 +518,7 @@ async function listSleep(token, days, { onError } = {}) {
   return response.json()
 }
 
-function titleCase(text) {
+function toTitleCase(text) {
   return text
     ? text.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
     : text
@@ -550,7 +554,7 @@ export async function getWorkouts(token, days = 90, { onError } = {}) {
       source_id: id,
       started_at: start,
       ended_at: end,
-      type: exercise.displayName ?? titleCase(exercise.exerciseType) ?? 'Workout',
+      type: exercise.displayName ?? toTitleCase(exercise.exerciseType) ?? 'Workout',
       duration_min: durationSec ? Math.round(durationSec / 60) : null,
       calories: metricsSummary.caloriesKcal != null ? Math.round(Number(metricsSummary.caloriesKcal)) : null,
       distance_km:

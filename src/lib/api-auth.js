@@ -34,11 +34,11 @@ export async function authenticateApiRequest(request, { scope } = {}) {
   }
 
   // Per-user fixed-window rate limit (shared across instances via Postgres).
-  const rl = await enforceRateLimit(service, `tok:${resolved.userId}`)
-  if (!rl.allowed) {
+  const rateLimit = await enforceRateLimit(service, `tok:${resolved.userId}`)
+  if (!rateLimit.allowed) {
     return apiError(429, 'rate_limited', 'Too many requests — slow down.', {
-      'Retry-After': String(Math.max(1, rl.reset - Math.floor(Date.now() / 1000))),
-      ...rateLimitHeaders(rl),
+      'Retry-After': String(Math.max(1, rateLimit.reset - Math.floor(Date.now() / 1000))),
+      ...rateLimitHeaders(rateLimit),
     })
   }
 

@@ -62,9 +62,9 @@ export async function notifyTopMovers(service, { push = true } = {}) {
     const rows = []
     for (const row of top4) {
       const current = Number(row.total_steps) || 0
-      const before = previous[row.id]
-      if (push && before != null && current - before >= THRESHOLD) {
-        const delta = current - before
+      const previousTotal = previous[row.id]
+      if (push && previousTotal != null && current - previousTotal >= THRESHOLD) {
+        const delta = current - previousTotal
         await sendPushToAll(
           {
             title: 'Leaderboard',

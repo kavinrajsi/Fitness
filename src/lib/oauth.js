@@ -16,21 +16,18 @@ const CODE_TTL_MS = 5 * 60 * 1000
 const ACCESS_TTL_MS = 60 * 60 * 1000
 const REFRESH_TTL_MS = 60 * 24 * 60 * 60 * 1000
 
-const iso = (ms) => new Date(Date.now() + ms).toISOString()
-const expired = (ts) => new Date(ts).getTime() < Date.now()
-const gen = (prefix) => prefix + crypto.randomBytes(32).toString('base64url')
+const isoFromNow = (ms) => new Date(Date.now() + ms).toISOString()
+const isExpired = (ts) => new Date(ts).getTime() < Date.now()
+const randomToken = (prefix) => prefix + crypto.randomBytes(32).toString('base64url')
 
 /** New opaque identifiers. Client id is public; the rest are shown once then hashed. */
-export const generateClientId = () => gen('kref_client_')
-export const generateClientSecret = () => gen('kref_secret_')
+export const generateClientId = () => randomToken('kref_client_')
+export const generateClientSecret = () => randomToken('kref_secret_')
 
-/** Verify a PKCE code_verifier against the stored challenge. S256 only (plain allowed if set). */
+/** Verify a PKCE code_verifier against the stored challenge. S256 only — `plain` is rejected. */
 export function pkceMatches(verifier, challenge, method) {
-  if (!challenge || !verifier) return false
-  if (method === 'S256') {
-    return crypto.createHash('sha256').update(verifier).digest('base64url') === challenge
-  }
-  return method === 'plain' && verifier === challenge
+  if (!challenge || !verifier || method !== 'S256') return false
+  return crypto.createHash('sha256').update(verifier).digest('base64url') === challenge
 }
 
 /** Look up a client and (if a redirect_uri is given) require an exact match. */
@@ -64,7 +61,7 @@ export async function createAuthorizationCode(
   service,
   { clientId, userId, redirectUri, scopes, codeChallenge, codeChallengeMethod }
 ) {
-  const raw = gen('kref_code_')
+  const raw = randomToken('kref_code_')
   const { error } = await service.from('oauth_authorization_codes').insert({
     code_hash: hashToken(raw),
     client_id: clientId,
@@ -73,28 +70,28 @@ export async function createAuthorizationCode(
     scopes,
     code_challenge: codeChallenge,
     code_challenge_method: codeChallengeMethod,
-    expires_at: iso(CODE_TTL_MS),
+    expires_at: isoFromNow(CODE_TTL_MS),
   })
   return error ? null : raw
 }
 
 /** Issue a fresh access + refresh token pair for (client, user, scopes). */
 export async function issueTokens(service, { clientId, userId, scopes }) {
-  const access = gen('kref_at_')
-  const refresh = gen('kref_rt_')
+  const access = randomToken('kref_at_')
+  const refresh = randomToken('kref_rt_')
   await service.from('oauth_access_tokens').insert({
     token_hash: hashToken(access),
     client_id: clientId,
     user_id: userId,
     scopes,
-    expires_at: iso(ACCESS_TTL_MS),
+    expires_at: isoFromNow(ACCESS_TTL_MS),
   })
   await service.from('oauth_refresh_tokens').insert({
     token_hash: hashToken(refresh),
     client_id: clientId,
     user_id: userId,
     scopes,
-    expires_at: iso(REFRESH_TTL_MS),
+    expires_at: isoFromNow(REFRESH_TTL_MS),
   })
   return {
     access_token: access,
@@ -112,16 +109,22 @@ export async function exchangeAuthorizationCode(service, { code, clientId, redir
     .select('*')
     .eq('code_hash', hashToken(code))
     .maybeSingle()
-  if (!row || row.consumed_at || expired(row.expires_at)) return { error: 'invalid_grant' }
+  if (!row || row.consumed_at || isExpired(row.expires_at)) return { error: 'invalid_grant' }
   if (row.client_id !== clientId || row.redirect_uri !== redirectUri) return { error: 'invalid_grant' }
   if (!pkceMatches(verifier, row.code_challenge, row.code_challenge_method)) {
     return { error: 'invalid_grant' }
   }
-  // Single-use: consume before issuing tokens.
-  await service
+  // Single-use: consume ATOMICALLY before issuing tokens. The `.is('consumed_at', null)`
+  // guard means only the first of two concurrent exchanges updates a row — the loser gets
+  // no row back and is rejected, so one code can never mint two token pairs.
+  const { data: consumed } = await service
     .from('oauth_authorization_codes')
     .update({ consumed_at: new Date().toISOString() })
     .eq('code_hash', row.code_hash)
+    .is('consumed_at', null)
+    .select('code_hash')
+    .maybeSingle()
+  if (!consumed) return { error: 'invalid_grant' }
   return { tokens: await issueTokens(service, { clientId, userId: row.user_id, scopes: row.scopes }) }
 }
 
@@ -132,13 +135,16 @@ export async function rotateRefreshToken(service, { refreshToken, clientId }) {
     .select('*')
     .eq('token_hash', hashToken(refreshToken))
     .maybeSingle()
-  if (!row || row.revoked_at || expired(row.expires_at)) return { error: 'invalid_grant' }
+  if (!row || row.revoked_at || isExpired(row.expires_at)) return { error: 'invalid_grant' }
   if (row.client_id !== clientId) return { error: 'invalid_grant' }
+  // Issue the new pair FIRST, then revoke the presented token — so a failure during issuance
+  // doesn't leave the user with a revoked-but-not-replaced session.
+  const tokens = await issueTokens(service, { clientId, userId: row.user_id, scopes: row.scopes })
   await service
     .from('oauth_refresh_tokens')
     .update({ revoked_at: new Date().toISOString() })
     .eq('token_hash', row.token_hash)
-  return { tokens: await issueTokens(service, { clientId, userId: row.user_id, scopes: row.scopes }) }
+  return { tokens }
 }
 
 /** Resolve an OAuth access token (`kref_at_…`) to its owner + scopes, or null. */
@@ -149,6 +155,6 @@ export async function resolveAccessToken(service, raw) {
     .select('user_id, scopes, client_id, expires_at, revoked_at')
     .eq('token_hash', hashToken(raw))
     .maybeSingle()
-  if (!data || data.revoked_at || expired(data.expires_at)) return null
+  if (!data || data.revoked_at || isExpired(data.expires_at)) return null
   return { userId: data.user_id, scopes: data.scopes, clientId: data.client_id }
 }

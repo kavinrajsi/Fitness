@@ -33,14 +33,14 @@ export async function POST() {
   const stream = new ReadableStream({
     async start(controller) {
       // One NDJSON line per event — each enqueue is a flushed chunk to the client.
-      const send = (event) => controller.enqueue(encoder.encode(JSON.stringify(event) + '\n'))
+      const sendEvent = (event) => controller.enqueue(encoder.encode(JSON.stringify(event) + '\n'))
       try {
         if (!user) {
-          send({ error: 'You are not signed in.' })
+          sendEvent({ error: 'You are not signed in.' })
           return controller.close()
         }
 
-        send({ step: 'Checking your Google Health connection' })
+        sendEvent({ step: 'Checking your Google Health connection' })
         const service = createServiceClient()
         const { data: profile } = await service
           .from('profiles')
@@ -49,7 +49,7 @@ export async function POST() {
           .maybeSingle()
 
         if (!profile?.google_health_refresh_token) {
-          send({ error: 'Google Health is not connected.' })
+          sendEvent({ error: 'Google Health is not connected.' })
           return controller.close()
         }
 
@@ -57,13 +57,13 @@ export async function POST() {
           days: 30,
           workoutDays: 30,
           sampleDays: 30,
-          onStep: (stepMessage) => send({ step: stepMessage }),
+          onStep: (stepMessage) => sendEvent({ step: stepMessage }),
         })
 
         if (!result.ok) {
           const needsReconnect =
             result.reason === 'no_token' || result.reason === 'reconnect_required'
-          send({
+          sendEvent({
             error: needsReconnect
               ? 'Could not access Google Health — please reconnect.'
               : 'Sync failed — please try again.',
@@ -78,7 +78,7 @@ export async function POST() {
         const metrics = result.metrics
         const totalSteps = metrics.reduce((sum, metric) => sum + (metric.steps || 0), 0)
         const withSteps = metrics.filter((metric) => (metric.steps || 0) > 0).length
-        send({
+        sendEvent({
           done: true,
           summary: {
             days: metrics.length,
@@ -96,7 +96,7 @@ export async function POST() {
           userId: user?.id,
           error: err?.message ?? String(err),
         })
-        send({ error: 'Sync failed — please try again.' })
+        sendEvent({ error: 'Sync failed — please try again.' })
         controller.close()
       }
     },

@@ -147,18 +147,31 @@ describe('getDailyMetrics', () => {
     expect(day.hr_avg).toBe(100)
   })
 
-  it('drops heart-rate columns only when every chunk fails (keeps them on partial success)', async () => {
+  it('drops a chunked metric when ANY chunk fails (prevents partial-failure clobber)', async () => {
     const civil = { civilStartTime: { date: { year: 2026, month: 6, day: 5 } } }
-    // steps succeeds (so a row exists); heart-rate is omitted → every chunk 404s.
-    const fetchMock = router({
-      rollup: { steps: { rollupDataPoints: [{ ...civil, steps: { countSum: 5000 } }] } },
+    // steps (single call) succeeds; heart-rate is chunked over 30d — the first chunk
+    // succeeds but a later chunk 404s, i.e. a PARTIAL failure. (404 isn't retryable, so no
+    // timers.) The whole heart-rate metric must be dropped so the failed dates aren't
+    // overwritten with null.
+    let hrCalls = 0
+    const fetchMock = vi.fn(async (url) => {
+      if (url.includes('/steps/dataPoints:dailyRollUp'))
+        return jsonResponse({ rollupDataPoints: [{ ...civil, steps: { countSum: 5000 } }] })
+      if (url.includes('/heart-rate/dataPoints:dailyRollUp')) {
+        hrCalls += 1
+        return hrCalls === 1
+          ? jsonResponse({ rollupDataPoints: [{ ...civil, heartRate: { beatsPerMinuteAvg: 100 } }] })
+          : notOk(404)
+      }
+      return notOk(404)
     })
     vi.stubGlobal('fetch', fetchMock)
 
     const rows = await getDailyMetrics('token', 30)
     const day = rows.find((r) => r.date === '2026-06-05')
-    expect(day.steps).toBe(5000)
-    expect('hr_avg' in day).toBe(false)
+    expect(day.steps).toBe(5000) // single-call metric that succeeded is kept
+    expect(hrCalls).toBeGreaterThan(1) // multiple chunks attempted
+    expect('hr_avg' in day).toBe(false) // partial failure → metric dropped, not clobbered
     expect('hr_min' in day).toBe(false)
     expect('hr_max' in day).toBe(false)
   })

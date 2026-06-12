@@ -18,7 +18,7 @@ import {
 import { notifyAdminOfFailure } from '@/lib/notify-admin'
 
 // Supabase rejects huge single upserts — write in chunks.
-async function upsertChunked(service, table, rows, conflict, size = 1000) {
+async function upsertInChunks(service, table, rows, conflict, size = 1000) {
   for (let i = 0; i < rows.length; i += size) {
     await service.from(table).upsert(rows.slice(i, i + size), { onConflict: conflict })
   }
@@ -107,7 +107,7 @@ export async function syncUserMetrics(
   })
   if (samples.length) {
     const now = new Date().toISOString()
-    await upsertChunked(
+    await upsertInChunks(
       service,
       'steps_raw',
       samples.map((sample) => ({
@@ -119,7 +119,7 @@ export async function syncUserMetrics(
       })),
       'user_id,started_at'
     )
-    await upsertChunked(
+    await upsertInChunks(
       service,
       'steps_hourly',
       hourlyFromSamples(samples).map((bucket) => ({

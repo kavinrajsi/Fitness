@@ -57,9 +57,9 @@ export async function GET(request) {
   const top = (rows ?? []).filter((r) => Number(r.total_steps) > 0).slice(0, 5)
 
   // Period label with its date(s), e.g. "Today · Jun 6" or "Last 7 days · May 31 – Jun 6".
-  const fmtDay = (d) =>
+  const formatDayLabel = (d) =>
     new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
-  const dateLabel = since === until ? fmtDay(since) : `${fmtDay(since)} – ${fmtDay(until)}`
+  const dateLabel = since === until ? formatDayLabel(since) : `${formatDayLabel(since)} – ${formatDayLabel(until)}`
   const subtitle = `${period.label} · ${dateLabel}`
 
   // Portrait targets stack logo/brand/title vertically; wide lays them out in a single row.

@@ -21,6 +21,7 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { syncUserMetrics } from '@/lib/sync-metrics'
 import { notifyTopMovers } from '@/lib/notify-leaderboard'
+import { safeEqual } from '@/lib/secure-compare'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,7 +30,8 @@ export const dynamic = 'force-dynamic'
 // Every non-handshake path returns 204 so Google stops retrying.
 export async function POST(request) {
   const secret = process.env.GOOGLE_HEALTH_WEBHOOK_SECRET
-  const authorized = !!secret && request.headers.get('authorization') === secret
+  // Constant-time compare so the secret can't be recovered via response-timing probing.
+  const authorized = !!secret && safeEqual(request.headers.get('authorization') ?? '', secret)
 
   let body = null
   try {
