@@ -59,7 +59,12 @@ full architecture, data model, and env vars. Key conventions to follow:
 - All sync goes through `syncUserMetrics` (`src/lib/sync-metrics.js`), called by the cron,
   manual `/api/sync` (streaming), and the webhook. `syncAllConnectedUsers` (same file) is
   the shared loop the crons use. Full history backfills once per user
-  (`profiles.health_data_backfilled_at`).
+  (`profiles.health_data_backfilled_at`). Per-caller windows: **manual** pulls 30 days of
+  all data (`days`/`workoutDays`/`sampleDays` all 30); **cron**/**webhook** use a 7-day
+  daily-metrics window with the default 5y workouts + 14d samples (365 on backfill). A
+  metric whose Google Health fetch fails (after retrying `429`/`5xx` via `fetchWithRetry`)
+  is **omitted from the upsert** in `getDailyMetrics`, so it can't clobber a stored value
+  with `0`/`null`.
 - Web Push: `src/lib/push.js` (`sendPushToAll`) + two helpers in `notify-leaderboard.js`:
   `notifyTopMovers({ push })` (7-day "added N steps" deltas; fires on manual `/api/sync` +
   webhook — the morning cron calls it with `push:false` to refresh the `leaderboard_snapshot`
@@ -70,6 +75,13 @@ full architecture, data model, and env vars. Key conventions to follow:
   re-syncs (`backfill:false`; `502` + no push if the sync fails) then pushes **today's** top
   3. Both gated by `CRON_SECRET` via `authorizeCron` (`src/lib/cron-auth.js`).
 - Admin is gated by `ADMIN_EMAIL` (`src/lib/constants.js`).
+- Admin failure alerts: `notifyAdminOfFailure` (`src/lib/notify-admin.js`) emails `ADMIN_EMAIL`
+  via ZeptoMail (`src/lib/email.js`, REST not SDK; env `ZEPTOMAIL_TOKEN`/`ZEPTOMAIL_FROM`,
+  no-ops if unset) the moment a sync hits a real failure — a Google Health fetch that fails
+  after retries (the `onError` callback threaded through `getDailyMetrics`/`getWorkouts`/
+  `getStepSamples`, fired only on a post-retry `429`/`5xx`, never on `403`/`404` no-data), a
+  dead token, a `daily_metrics` upsert error, an unhandled per-user exception, or a whole
+  cron run failing. Best-effort + deduped per run; never blocks/breaks the sync.
 - Sync also writes `steps_raw` + `steps_hourly`; `src/lib/heatmap.js` (`buildHeatmap`)
   aggregates the hourly rows into the weekday×hour activity grid.
 
@@ -99,6 +111,16 @@ full architecture, data model, and env vars. Key conventions to follow:
   window (`API_RATE_LIMIT`/`API_RATE_WINDOW` in constants), enforced inside
   `authenticateApiRequest`; **fails open** on DB error. Stale `api_rate_limits` rows + expired
   auth codes are pruned by the daily cron.
+
+## Analytics & feature flags (PostHog)
+- **Analytics**: PostHog inits in `src/instrumentation-client.js` (Next 16 client
+  instrumentation, `defaults: '2026-01-30'` auto-pageviews); `src/components/posthog-provider.jsx`
+  (in the root layout) wires `posthog-js/react` and identifies the Supabase user (id + email),
+  resets on sign-out. `api_host` is the **ingestion** host `us.i.posthog.com` (ui_host
+  `us.posthog.com`). No-ops without `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`.
+- **Flags**: Vercel Flags SDK (`flags/next`) + `@flags-sdk/posthog` in `src/lib/flags.js`;
+  evaluated server-side, targeted via a deduped `identify` (same Supabase user). Add flags by
+  copying `exampleFlag`; read with `await yourFlag()` in a server component.
 
 ## Working agreements
 - Commit/push only when asked; end commit messages with the `Co-Authored-By` trailer.

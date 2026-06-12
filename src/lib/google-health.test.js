@@ -105,8 +105,10 @@ describe('getDailyMetrics', () => {
     expect(day.hydration_ml).toBe(1500) // amountConsumed.milliliters
     expect(day.active_min).toBe(3) // summed per level
     expect(day.vo2_max).toBe(39)
-    expect(day.spo2).toBeNull() // no data → null
-    expect(day.hrv_ms).toBeNull()
+    // spo2 / hrv have no data here → their list fetch fails, so the column is dropped
+    // (left out of the upsert) rather than written, so it can never clobber a stored value.
+    expect('spo2' in day).toBe(false)
+    expect('hrv_ms' in day).toBe(false)
 
     // 1970-dated resting-HR point is dropped by the year>=2000 guard.
     expect(rows.some((r) => r.date.startsWith('1970'))).toBe(false)
@@ -117,6 +119,102 @@ describe('getDailyMetrics', () => {
     expect(rollupCalls('steps')).toBe(1)
     expect(rollupCalls('heart-rate')).toBeGreaterThan(1)
     expect(rollupCalls('total-calories')).toBeGreaterThan(1)
+  })
+
+  it('omits a column whose source fetch failed so the upsert cannot clobber it', async () => {
+    const civil = { civilStartTime: { date: { year: 2026, month: 6, day: 5 } } }
+    // Only heart-rate is provided; steps / active-energy / distance / total-calories all 404.
+    const fetchMock = router({
+      rollup: {
+        'heart-rate': {
+          rollupDataPoints: [
+            { ...civil, heartRate: { beatsPerMinuteAvg: 100, beatsPerMinuteMin: 80, beatsPerMinuteMax: 120 } },
+          ],
+        },
+      },
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const rows = await getDailyMetrics('token', 30)
+    const day = rows.find((r) => r.date === '2026-06-05')
+    expect(day).toBeDefined()
+    // Failed sources are absent entirely (not 0/null), so they stay out of the upsert payload.
+    expect('steps' in day).toBe(false)
+    expect('calories' in day).toBe(false)
+    expect('distance_km' in day).toBe(false)
+    expect('total_calories' in day).toBe(false)
+    // The source that succeeded is kept.
+    expect(day.hr_avg).toBe(100)
+  })
+
+  it('drops heart-rate columns only when every chunk fails (keeps them on partial success)', async () => {
+    const civil = { civilStartTime: { date: { year: 2026, month: 6, day: 5 } } }
+    // steps succeeds (so a row exists); heart-rate is omitted → every chunk 404s.
+    const fetchMock = router({
+      rollup: { steps: { rollupDataPoints: [{ ...civil, steps: { countSum: 5000 } }] } },
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const rows = await getDailyMetrics('token', 30)
+    const day = rows.find((r) => r.date === '2026-06-05')
+    expect(day.steps).toBe(5000)
+    expect('hr_avg' in day).toBe(false)
+    expect('hr_min' in day).toBe(false)
+    expect('hr_max' in day).toBe(false)
+  })
+})
+
+describe('fetchWithRetry (exercised via dailyRollUp/getDailySteps)', () => {
+  it('retries a transient 503 then succeeds', async () => {
+    vi.useRealTimers()
+    let calls = 0
+    const fetchMock = vi.fn(async () => {
+      calls++
+      return calls === 1 ? notOk(503) : jsonResponse({ rollupDataPoints: [] })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await getDailySteps('token', 1)
+    expect(fetchMock).toHaveBeenCalledTimes(2) // 503 retried once, then 200
+    expect(result).not.toBeNull()
+  })
+
+  it('gives up (returns null) after exhausting retries on a persistent 503', async () => {
+    vi.useRealTimers()
+    const fetchMock = vi.fn(async () => notOk(503))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await getDailySteps('token', 1)
+    expect(fetchMock).toHaveBeenCalledTimes(3) // initial + 2 retries
+    expect(result).toBeNull()
+  })
+
+  it('does not retry a non-retryable 4xx (e.g. 403 missing scope)', async () => {
+    vi.useRealTimers()
+    const fetchMock = vi.fn(async () => notOk(403))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await getDailySteps('token', 1)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(result).toBeNull()
+  })
+})
+
+describe('getDailyMetrics onError reporting', () => {
+  it('reports a persistent retryable failure (5xx) but stays silent on 403/404', async () => {
+    vi.useRealTimers()
+
+    const onError = vi.fn()
+    vi.stubGlobal('fetch', vi.fn(async () => notOk(503)))
+    await getDailyMetrics('token', 1, { onError })
+    expect(onError).toHaveBeenCalled()
+    expect(onError.mock.calls[0][0]).toMatchObject({ status: 503 })
+    expect(typeof onError.mock.calls[0][0].label).toBe('string')
+
+    onError.mockClear()
+    vi.stubGlobal('fetch', vi.fn(async () => notOk(404)))
+    await getDailyMetrics('token', 1, { onError })
+    expect(onError).not.toHaveBeenCalled()
   })
 })
 

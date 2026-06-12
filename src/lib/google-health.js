@@ -15,45 +15,85 @@ import { IST_OFFSET_MS, isoDate, civil, addDays, civilKey } from '@/lib/date-uti
 
 const HEALTH_API = 'https://health.googleapis.com/v4/users/me/dataTypes'
 
+// Transient statuses worth a retry (rate limit + upstream/gateway errors). A 4xx other
+// than 429 is a real rejection (missing scope, bad request) — don't retry those.
+const RETRYABLE = new Set([429, 500, 502, 503, 504])
+
+// fetch() with a couple of retries on transient failures. Only sleeps on the retry
+// branch, so the (always-ok) happy-path tests under fake timers never block. When a
+// retryable status survives every retry, that's a genuine API failure (not the normal
+// 403/404 "no data / restricted scope") — `onError({ label, status })` is invoked so the
+// caller can alert. onError is awaited but its own errors are swallowed.
+async function fetchWithRetry(url, init, { retries = 2, label, onError } = {}) {
+  let response
+  for (let attempt = 0; ; attempt++) {
+    response = await fetch(url, init)
+    if (response.ok || !RETRYABLE.has(response.status) || attempt >= retries) break
+    await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)))
+  }
+  if (!response.ok && RETRYABLE.has(response.status) && onError) {
+    try {
+      await onError({ label: label ?? 'request', status: response.status })
+    } catch {
+      // an alert failure must never break the fetch
+    }
+  }
+  return response
+}
+
 // POST a dailyRollUp request: one aggregated point per IST civil day across
 // [startDate, endDate). Returns the parsed JSON (with rollupDataPoints) or null when
 // the API rejects it (e.g. 403 for a missing scope, or a window past the type's cap).
-async function dailyRollUp(token, dataType, startDate, endDate) {
-  const response = await fetch(`${HEALTH_API}/${dataType}/dataPoints:dailyRollUp`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      range: { start: civil(startDate), end: civil(endDate) },
-      windowSizeDays: 1,
-    }),
-    cache: 'no-store',
-  })
+async function dailyRollUp(token, dataType, startDate, endDate, { onError } = {}) {
+  const response = await fetchWithRetry(
+    `${HEALTH_API}/${dataType}/dataPoints:dailyRollUp`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        range: { start: civil(startDate), end: civil(endDate) },
+        windowSizeDays: 1,
+      }),
+      cache: 'no-store',
+    },
+    { label: dataType, onError }
+  )
   if (!response.ok) return null
   return response.json()
 }
 
 // Some rollups cap the query window (e.g. heart-rate / total-calories at 14 days).
-// Paginate the [start, end) range in <= chunkDays windows and merge the points.
-async function chunkedRollUp(token, dataType, start, end, chunkDays = 14) {
+// Paginate the [start, end) range in <= chunkDays windows and merge the points. `ok`
+// flips true once any chunk succeeds, so callers can tell a real (if partial) result
+// apart from a wholesale fetch failure and avoid clobbering stored values.
+async function chunkedRollUp(token, dataType, start, end, chunkDays = 14, { onError } = {}) {
   const rollupDataPoints = []
+  let ok = false
   let cursor = start
   while (cursor < end) {
     const next = addDays(cursor, chunkDays)
     const windowEnd = next < end ? next : end
-    const data = await dailyRollUp(token, dataType, cursor, windowEnd)
-    if (data?.rollupDataPoints) rollupDataPoints.push(...data.rollupDataPoints)
+    const data = await dailyRollUp(token, dataType, cursor, windowEnd, { onError })
+    if (data) {
+      ok = true
+      if (data.rollupDataPoints) rollupDataPoints.push(...data.rollupDataPoints)
+    }
     cursor = windowEnd
   }
-  return { rollupDataPoints }
+  return { rollupDataPoints, ok }
 }
 
 // GET list of individual data points for a data type (used where dailyRollUp is
 // unsupported, e.g. height).
-async function listPoints(token, dataType, pageSize = 50) {
-  const response = await fetch(`${HEALTH_API}/${dataType}/dataPoints?pageSize=${pageSize}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: 'no-store',
-  })
+async function listPoints(token, dataType, pageSize = 50, { onError } = {}) {
+  const response = await fetchWithRetry(
+    `${HEALTH_API}/${dataType}/dataPoints?pageSize=${pageSize}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    },
+    { label: dataType, onError }
+  )
   if (!response.ok) return null
   return response.json()
 }
@@ -167,17 +207,21 @@ export async function getStepHistory(token, months = 24) {
  * once we pass the cutoff (or run out of pages). Returns one entry per recorded interval:
  * { started_at, ended_at, count, day, hour } (day/hour from the IST civil start time).
  */
-export async function getStepSamples(token, days = 365, maxPages = 80) {
+export async function getStepSamples(token, days = 365, maxPages = 80, { onError } = {}) {
   const cutoffMs = Date.now() - days * 86400000
   const base = `${HEALTH_API}/steps/dataPoints?pageSize=5000`
   let url = base
   const samples = []
 
   for (let page = 0; page < maxPages && url; page++) {
-    const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: 'no-store',
-    })
+    const response = await fetchWithRetry(
+      url,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      },
+      { label: 'steps-samples', onError }
+    )
     if (!response.ok) break
     const data = await response.json()
 
@@ -285,24 +329,24 @@ export async function getDailySteps(token, days = 90) {
  * it is defensive (any shape mismatch yields no sleep) and pending confirmation against
  * a real sleep record.
  */
-export async function getDailyMetrics(token, days = 90) {
+export async function getDailyMetrics(token, days = 90, { onError } = {}) {
   const start = isoDate(-(days - 1))
   const end = isoDate(1)
 
   const [stepsD, calD, distD, totalCalD, hrD, rhrD, sleepD, hydD, amD, vo2D, spo2D, hrvD] =
     await Promise.all([
-      dailyRollUp(token, 'steps', start, end),
-      dailyRollUp(token, 'active-energy-burned', start, end),
-      dailyRollUp(token, 'distance', start, end),
-      chunkedRollUp(token, 'total-calories', start, end),
-      chunkedRollUp(token, 'heart-rate', start, end),
-      listPoints(token, 'daily-resting-heart-rate', 200),
-      listSleep(token, days),
-      listPoints(token, 'hydration-log', 200),
-      listPoints(token, 'active-minutes', 1000),
-      listPoints(token, 'daily-vo2-max', 200),
-      listPoints(token, 'daily-oxygen-saturation', 200),
-      listPoints(token, 'daily-heart-rate-variability', 200),
+      dailyRollUp(token, 'steps', start, end, { onError }),
+      dailyRollUp(token, 'active-energy-burned', start, end, { onError }),
+      dailyRollUp(token, 'distance', start, end, { onError }),
+      chunkedRollUp(token, 'total-calories', start, end, 14, { onError }),
+      chunkedRollUp(token, 'heart-rate', start, end, 14, { onError }),
+      listPoints(token, 'daily-resting-heart-rate', 200, { onError }),
+      listSleep(token, days, { onError }),
+      listPoints(token, 'hydration-log', 200, { onError }),
+      listPoints(token, 'active-minutes', 1000, { onError }),
+      listPoints(token, 'daily-vo2-max', 200, { onError }),
+      listPoints(token, 'daily-oxygen-saturation', 200, { onError }),
+      listPoints(token, 'daily-heart-rate-variability', 200, { onError }),
     ])
 
   const byDate = {}
@@ -425,19 +469,47 @@ export async function getDailyMetrics(token, days = 90) {
     if (dateKey && hrvMs != null) row(dateKey).hrv_ms = Math.round(Number(hrvMs) * 10) / 10
   }
 
-  return Object.values(byDate).sort((rowA, rowB) => rowB.date.localeCompare(rowA.date))
+  const rows = Object.values(byDate).sort((rowA, rowB) => rowB.date.localeCompare(rowA.date))
+
+  // A failed source fetch (null, or a chunked rollup where every chunk failed) must NOT
+  // clobber the stored value with the row's 0/null default. The fetch failed for the whole
+  // window, so drop the column(s) it owns from every row — leaving them out of the upsert
+  // payload entirely, so Postgres ON CONFLICT preserves the existing value.
+  const ownedColumns = [
+    [stepsD, ['steps']],
+    [calD, ['calories']],
+    [distD, ['distance_km']],
+    [totalCalD?.ok ? totalCalD : null, ['total_calories']],
+    [hrD?.ok ? hrD : null, ['hr_avg', 'hr_min', 'hr_max']],
+    [rhrD, ['resting_hr']],
+    [sleepD, ['sleep_min']],
+    [hydD, ['hydration_ml']],
+    [amD, ['active_min']],
+    [vo2D, ['vo2_max']],
+    [spo2D, ['spo2']],
+    [hrvD, ['hrv_ms']],
+  ]
+  for (const [result, cols] of ownedColumns) {
+    if (result == null) for (const dayRow of rows) for (const col of cols) delete dayRow[col]
+  }
+
+  return rows
 }
 
 // Sleep sessions for the last `days` days (sleep doesn't support dailyRollUp).
 // Filters by the documented member sleep.interval.end_time.
-async function listSleep(token, days) {
+async function listSleep(token, days, { onError } = {}) {
   const since = isoDate(-(days - 1))
   const params = new URLSearchParams({ pageSize: '200' })
   params.set('filter', `sleep.interval.end_time >= "${since}T00:00:00Z"`)
-  const response = await fetch(`${HEALTH_API}/sleep/dataPoints?${params}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: 'no-store',
-  })
+  const response = await fetchWithRetry(
+    `${HEALTH_API}/sleep/dataPoints?${params}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    },
+    { label: 'sleep', onError }
+  )
   if (!response.ok) return null
   return response.json()
 }
@@ -454,8 +526,8 @@ function titleCase(text) {
  * exerciseType, displayName, activeDuration ("Ns"), metricsSummary.{caloriesKcal,
  * distanceMillimeters}. source_id is the trailing id of the dataPoint `name`.
  */
-export async function getWorkouts(token, days = 90) {
-  const data = await listPoints(token, 'exercise', 1000)
+export async function getWorkouts(token, days = 90, { onError } = {}) {
+  const data = await listPoints(token, 'exercise', 1000, { onError })
   if (!data) return []
 
   const cutoff = Date.now() - days * 86400000

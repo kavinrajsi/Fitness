@@ -15,6 +15,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { authorizeCron } from '@/lib/cron-auth'
 import { syncAllConnectedUsers } from '@/lib/sync-metrics'
 import { notifyLeaderboardTop } from '@/lib/notify-leaderboard'
+import { notifyAdminOfFailure } from '@/lib/notify-admin'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300 // the night run may sync every user first
@@ -39,6 +40,10 @@ export async function GET(request) {
     } catch (err) {
       console.error('[cron] notify-leaderboard sync failed:', err?.message ?? err)
       syncFailed = true
+      await notifyAdminOfFailure({
+        source: 'cron:notify-leaderboard',
+        error: err?.message ?? String(err),
+      })
     }
   }
 

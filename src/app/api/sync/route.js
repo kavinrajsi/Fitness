@@ -15,6 +15,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { syncUserMetrics } from '@/lib/sync-metrics'
 import { notifyTopMovers } from '@/lib/notify-leaderboard'
+import { notifyAdminOfFailure } from '@/lib/notify-admin'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -53,7 +54,9 @@ export async function POST() {
         }
 
         const result = await syncUserMetrics(service, profile, {
-          days: 90,
+          days: 30,
+          workoutDays: 30,
+          sampleDays: 30,
           onStep: (stepMessage) => send({ step: stepMessage }),
         })
 
@@ -88,6 +91,11 @@ export async function POST() {
         controller.close()
       } catch (err) {
         console.error('[sync] error for user', user?.id, err?.message ?? err)
+        await notifyAdminOfFailure({
+          source: 'manual-sync-exception',
+          userId: user?.id,
+          error: err?.message ?? String(err),
+        })
         send({ error: 'Sync failed — please try again.' })
         controller.close()
       }

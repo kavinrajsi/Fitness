@@ -18,6 +18,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { authorizeCron } from '@/lib/cron-auth'
 import { syncAllConnectedUsers } from '@/lib/sync-metrics'
 import { notifyLeaderboardTop, notifyTopMovers } from '@/lib/notify-leaderboard'
+import { notifyAdminOfFailure } from '@/lib/notify-admin'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -41,6 +42,7 @@ export async function GET(request) {
   try {
     ;({ users, rows, skipped } = await syncAllConnectedUsers(supabase, { days }))
   } catch (err) {
+    await notifyAdminOfFailure({ source: 'cron:sync-metrics', error: err?.message ?? String(err) })
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 })
   }
 

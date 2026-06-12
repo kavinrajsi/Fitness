@@ -39,6 +39,7 @@ import { GoalRing } from '@/components/goal-ring'
 import { HourHeatmap } from '@/components/hour-heatmap'
 import { ActivityChartCard } from '@/components/activity-chart-card'
 import { buildHeatmap } from '@/lib/heatmap'
+import { exampleFlag } from '@/lib/flags'
 
 export const dynamic = 'force-dynamic'
 
@@ -171,8 +172,17 @@ export default async function DashboardPage({ searchParams }) {
   const hasHr = hrSeries.some((point) => point.hr != null)
   const hasSleep = sleepSeries.some((point) => point.sleep != null)
 
+  // Example feature flag (Vercel Flags SDK + PostHog). Flip "example-flag" on in PostHog to
+  // show this banner. Copy the pattern in src/lib/flags.js to add real flags.
+  const exampleEnabled = await exampleFlag()
+
   return (
     <div className="flex flex-col gap-4 md:gap-6">
+      {exampleEnabled && (
+        <div className="rounded-md border border-border bg-muted px-4 py-2 text-sm text-muted-foreground">
+          🚩 <code>example-flag</code> is on (PostHog feature flag).
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Metric
           label="Steps today"

@@ -15,6 +15,7 @@ import {
   getStepSamples,
   hourlyFromSamples,
 } from '@/lib/google-health'
+import { notifyAdminOfFailure } from '@/lib/notify-admin'
 
 // Supabase rejects huge single upserts — write in chunks.
 async function upsertChunked(service, table, rows, conflict, size = 1000) {
@@ -32,9 +33,22 @@ async function upsertChunked(service, table, rows, conflict, size = 1000) {
 export async function syncUserMetrics(
   service,
   profile,
-  { days = 90, onStep, fullHistory = false } = {}
+  { days = 90, onStep, fullHistory = false, workoutDays = 1825, sampleDays } = {}
 ) {
   const step = (message) => onStep?.(message)
+
+  // Email the admin the moment a real failure happens, deduped within this run so a
+  // retried/duplicate failure (same source · data type · status) only alerts once.
+  const alerted = new Set()
+  const alertAdmin = async (detail) => {
+    const key = `${detail.source ?? ''}:${detail.label ?? ''}:${detail.status ?? ''}:${detail.reason ?? ''}`
+    if (alerted.has(key)) return
+    alerted.add(key)
+    await notifyAdminOfFailure({ userId: profile.id, ...detail })
+  }
+  // Passed into the Google Health fetchers: fires only on genuine API failures (a
+  // retryable 429/5xx that survived all retries), not on the normal 403/404 "no data".
+  const onHealthError = (detail) => alertAdmin({ source: 'google-health', ...detail })
 
   step('Refreshing the Google Health access token')
   const token = await getValidHealthAccessToken(profile, service)
@@ -42,6 +56,7 @@ export async function syncUserMetrics(
     // A stored refresh token that no longer works ⇒ the user must reconnect (vs.
     // never having connected at all).
     const reason = profile.google_health_refresh_token ? 'reconnect_required' : 'no_token'
+    if (reason === 'reconnect_required') await alertAdmin({ source: 'token', reason })
     return { ok: false, reason, rows: 0, metrics: [] }
   }
 
@@ -54,7 +69,7 @@ export async function syncUserMetrics(
   }
 
   step('Fetching steps, calories, distance & heart rate')
-  const metrics = await getDailyMetrics(token, days)
+  const metrics = await getDailyMetrics(token, days, { onError: onHealthError })
 
   step(`Saving ${metrics.length} days to the database`)
   if (metrics.length) {
@@ -65,12 +80,15 @@ export async function syncUserMetrics(
         metrics.map((metric) => ({ user_id: profile.id, ...metric, updated_at: now })),
         { onConflict: 'user_id,date' }
       )
-    if (error) return { ok: false, reason: 'upsert_error', rows: 0, metrics }
+    if (error) {
+      await alertAdmin({ source: 'daily_metrics-upsert', error: error.message })
+      return { ok: false, reason: 'upsert_error', rows: 0, metrics }
+    }
   }
 
   // All workout sessions → workouts table (dedup on the source data-point id).
   step('Fetching workouts')
-  const workouts = await getWorkouts(token, 1825)
+  const workouts = await getWorkouts(token, workoutDays, { onError: onHealthError })
   if (workouts.length) {
     const now = new Date().toISOString()
     await service
@@ -84,7 +102,9 @@ export async function syncUserMetrics(
   // Raw intraday step samples + hourly buckets. A full year on the first backfill,
   // a short recent window on incremental syncs.
   step('Fetching intraday step samples')
-  const samples = await getStepSamples(token, fullHistory ? 365 : 14)
+  const samples = await getStepSamples(token, sampleDays ?? (fullHistory ? 365 : 14), 80, {
+    onError: onHealthError,
+  })
   if (samples.length) {
     const now = new Date().toISOString()
     await upsertChunked(
@@ -177,6 +197,11 @@ export async function syncAllConnectedUsers(service, { days = 7, backfill = true
       }
     } catch (err) {
       console.error(`[sync] failed for profile ${profile.id}:`, err?.message ?? err)
+      await notifyAdminOfFailure({
+        source: 'sync-exception',
+        userId: profile.id,
+        error: err?.message ?? String(err),
+      })
       skipped++
     }
   }

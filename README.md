@@ -103,9 +103,43 @@ VAPID_PRIVATE_KEY=
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=   # same value as VAPID_PUBLIC_KEY
 VAPID_SUBJECT=mailto:you@example.com
 
+# PostHog (analytics + Vercel Flags SDK feature flags)
+NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=   # public phc_… project token
+NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com   # ingestion host (NOT us.posthog.com)
+# Optional — faster LOCAL feature-flag evaluation (else flags evaluate remotely via the token):
+# POSTHOG_PERSONAL_API_KEY=
+# POSTHOG_PROJECT_ID=
+
 # Optional: override the admin account (defaults to sikavinraj@gmail.com)
 ADMIN_EMAIL=
+
+# ZeptoMail (admin failure alerts) — sync failures are emailed to ADMIN_EMAIL.
+# Without ZEPTOMAIL_TOKEN + ZEPTOMAIL_FROM the alerts are silently skipped (logged only).
+ZEPTOMAIL_TOKEN=                 # Send Mail token; with or without the "Zoho-enczapikey " prefix
+ZEPTOMAIL_FROM=                  # verified sender address
+ZEPTOMAIL_FROM_NAME=KyaReFitting # optional sender display name
+ZEPTOMAIL_API_URL=               # optional; default https://api.zeptomail.com/v1.1/email (use .eu for EU)
 ```
+
+When a sync hits a real failure — a Google Health fetch that still fails after retries
+(transient `429`/`5xx`), a token that can't be refreshed, a `daily_metrics` upsert error,
+or an unhandled sync exception — `notifyAdminOfFailure` (`src/lib/notify-admin.js`) emails
+`ADMIN_EMAIL` via ZeptoMail (`src/lib/email.js`). Alerts are best-effort (never block or
+break a sync) and deduped per run. Expected `403`/`404` "no data / restricted scope"
+responses are **not** alerted.
+
+## Analytics & feature flags (PostHog)
+
+- **Analytics** — PostHog is initialised in `src/instrumentation-client.js` (Next 16 client
+  instrumentation; `defaults: '2026-01-30'` auto-captures pageviews incl. App Router
+  navigations). `src/components/posthog-provider.jsx` (mounted in the root layout) supplies
+  the client to `posthog-js/react` and **identifies the signed-in Supabase user** (id +
+  email), resetting on sign-out. No-ops if `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` is unset.
+- **Feature flags** — the Vercel Flags SDK (`flags`) + PostHog adapter (`@flags-sdk/posthog`)
+  live in `src/lib/flags.js`. Flags evaluate server-side, targeted at the same Supabase user
+  via a deduped `identify`. Add a flag by copying `exampleFlag` (define it here, create a
+  matching flag in PostHog, then `await yourFlag()` in a server component — see the dashboard
+  for the example usage).
 
 ## Getting started
 
@@ -138,12 +172,17 @@ All three entry points share `syncUserMetrics` (`src/lib/sync-metrics.js`):
 
 - **Cron** — `GET /api/cron/sync-metrics` (Vercel cron, daily `0 2 * * *` UTC; requires
   `CRON_SECRET`). Backfills full history once per user, then incremental.
-- **Manual** — `POST /api/sync` streams live progress (NDJSON) to the Sync button.
+- **Manual** — `POST /api/sync` streams live progress (NDJSON) to the Sync button. Pulls
+  the last **30 days** of every data type (`days`/`workoutDays`/`sampleDays` all 30).
 - **Webhook** — `POST /api/webhooks/health` re-syncs a user on new Google Health data.
 
 Each run upserts `daily_metrics` and `workouts`, plus raw step samples into `steps_raw`
-and the rolled-up `steps_hourly` buckets that feed the activity heatmap (365 days on the
-one-time backfill, 14 days incrementally). After a **manual** sync or **webhook** sync,
+and the rolled-up `steps_hourly` buckets that feed the activity heatmap. Windows vary by
+caller: the **manual** sync uses 30 days for all data; the **cron**/**webhook** use a
+7-day daily-metrics window with the default 5-year workout and 14-day step-sample windows
+(365 days on the one-time backfill). A metric whose Google Health fetch fails — after
+retrying transient `429`/`5xx` — is **skipped, never written**, so a transient error can't
+overwrite a good value with `0`/`null`. After a **manual** sync or **webhook** sync,
 `notifyTopMovers()` checks the 7-day leaderboard and pushes "added N steps" alerts; the
 morning cron also calls it with `{ push: false }` to keep the `leaderboard_snapshot`
 baseline ~1 day fresh (so those deltas stay accurate) without sending a push.
