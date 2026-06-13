@@ -7,8 +7,13 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
-import { XIcon } from 'lucide-react'
+import { XIcon, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+
+// Manual sync emits 6 progress steps: connection check, token refresh, fetch metrics,
+// save, workouts, intraday samples (no first-run backfill on the manual button). Used only
+// for the "N / M" hint in the status footer.
+const EXPECTED_STEPS = 6
 
 export function SyncButton() {
   const router = useRouter()
@@ -179,6 +184,29 @@ export function SyncButton() {
                     View all steps →
                   </a>
                 </div>
+              )}
+            </div>
+
+            {/* Pinned status footer — always shows the current activity without scrolling. */}
+            <div className="text-muted-foreground flex shrink-0 items-center gap-2 border-t p-4 text-sm">
+              {error ? (
+                <span className="text-destructive font-medium">✕ {error}</span>
+              ) : result ? (
+                <span className="text-foreground font-medium">
+                  ✓ Synced {result.summary.days} days
+                </span>
+              ) : running ? (
+                <>
+                  <Loader2 className="size-4 shrink-0 animate-spin" />
+                  <span className="min-w-0 flex-1 truncate">
+                    {steps[steps.length - 1] ?? 'Starting…'}
+                  </span>
+                  <span className="shrink-0 tabular-nums">
+                    {steps.length} / {Math.max(EXPECTED_STEPS, steps.length)}
+                  </span>
+                </>
+              ) : (
+                <span>Ready to sync</span>
               )}
             </div>
           </div>
