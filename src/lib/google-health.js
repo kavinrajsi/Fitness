@@ -406,6 +406,7 @@ export async function getDailyMetrics(token, days = 90, { onError } = {}) {
     const restingHeartRate = point.dailyRestingHeartRate
     if (restingHeartRate?.beatsPerMinute == null || !restingHeartRate.date?.year || Number(restingHeartRate.date.year) < 2000) continue
     const dateKey = `${restingHeartRate.date.year}-${String(restingHeartRate.date.month).padStart(2, '0')}-${String(restingHeartRate.date.day).padStart(2, '0')}`
+    if (dateKey < start) continue // list endpoint has no date filter — keep to the window
     row(dateKey).resting_hr = Math.round(Number(restingHeartRate.beatsPerMinute))
   }
 
@@ -444,7 +445,7 @@ export async function getDailyMetrics(token, days = 90, { onError } = {}) {
   for (const point of activeMinutesData?.dataPoints ?? []) {
     const activeMinutes = point.activeMinutes
     const dateKey = civilKey(activeMinutes?.interval?.civilStartTime?.date)
-    if (!dateKey) continue
+    if (!dateKey || dateKey < start) continue
     let minutes = 0
     for (const level of activeMinutes.activeMinutesByActivityLevel ?? []) minutes += Number(level.activeMinutes ?? 0)
     if (minutes > 0) row(dateKey).active_min = (row(dateKey).active_min ?? 0) + minutes
@@ -454,7 +455,7 @@ export async function getDailyMetrics(token, days = 90, { onError } = {}) {
   for (const point of vo2MaxData?.dataPoints ?? []) {
     const vo2Max = point.dailyVo2Max
     const dateKey = civilKey(vo2Max?.date)
-    if (dateKey && vo2Max.vo2Max != null) row(dateKey).vo2_max = Math.round(Number(vo2Max.vo2Max) * 10) / 10
+    if (dateKey && dateKey >= start && vo2Max.vo2Max != null) row(dateKey).vo2_max = Math.round(Number(vo2Max.vo2Max) * 10) / 10
   }
 
   // SpO2 (defensive — no data in test account; field name unverified).
@@ -462,7 +463,7 @@ export async function getDailyMetrics(token, days = 90, { onError } = {}) {
     const oxygenSaturation = point.dailyOxygenSaturation
     const dateKey = civilKey(oxygenSaturation?.date)
     const percentage = oxygenSaturation?.averagePercentage ?? oxygenSaturation?.percentage ?? oxygenSaturation?.avgPercentage
-    if (dateKey && percentage != null) row(dateKey).spo2 = Math.round(Number(percentage) * 10) / 10
+    if (dateKey && dateKey >= start && percentage != null) row(dateKey).spo2 = Math.round(Number(percentage) * 10) / 10
   }
 
   // HRV (defensive — no data in test account; field name unverified).
@@ -470,7 +471,7 @@ export async function getDailyMetrics(token, days = 90, { onError } = {}) {
     const heartRateVariability = point.dailyHeartRateVariability
     const dateKey = civilKey(heartRateVariability?.date)
     const hrvMs = heartRateVariability?.heartRateVariabilityMillis ?? heartRateVariability?.hrvMillis ?? heartRateVariability?.millis ?? heartRateVariability?.rmssd
-    if (dateKey && hrvMs != null) row(dateKey).hrv_ms = Math.round(Number(hrvMs) * 10) / 10
+    if (dateKey && dateKey >= start && hrvMs != null) row(dateKey).hrv_ms = Math.round(Number(hrvMs) * 10) / 10
   }
 
   const rows = Object.values(byDate).sort((rowA, rowB) => rowB.date.localeCompare(rowA.date))
