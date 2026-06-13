@@ -10,7 +10,7 @@ import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { PostHogProvider } from "@/components/posthog-provider";
-import { GoogleAnalytics, GoogleTagManager } from "@next/third-parties/google";
+import { GoogleTagManager } from "@next/third-parties/google";
 
 const ibmPlexSans = IBM_Plex_Sans({
   variable: "--font-sans",
@@ -67,16 +67,11 @@ export default function RootLayout({ children }) {
             {children}
           </ThemeProvider>
         </PostHogProvider>
-        {/* Google Tag Manager + Analytics — live production deployment ONLY (not local dev
-            or Vercel preview builds; VERCEL_ENV is 'production' only for the live env). The
-            @next/third-parties components inject the GTM head script + <body> noscript and the
-            GA gtag with the correct loading strategy. */}
-        {process.env.VERCEL_ENV === "production" && (
-          <>
-            <GoogleTagManager gtmId="GTM-N7TJW72S" />
-            <GoogleAnalytics gaId="G-GEDJP4858J" />
-          </>
-        )}
+        {/* Google Tag Manager — live production deployment ONLY (not local dev or Vercel
+            preview builds; VERCEL_ENV is 'production' only for the live env). The
+            @next/third-parties component injects the GTM head script + <body> noscript with
+            the correct loading strategy. GA4 is managed inside GTM (no direct gtag here). */}
+        {process.env.VERCEL_ENV === "production" && <GoogleTagManager gtmId="GTM-N7TJW72S" />}
       </body>
     </html>
   );
