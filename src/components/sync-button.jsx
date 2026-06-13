@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
-import { XIcon, Loader2 } from 'lucide-react'
+import { XIcon, Loader2, CheckCircle2, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 // Manual sync emits 6 progress steps: connection check, token refresh, fetch metrics,
@@ -119,10 +119,12 @@ export function SyncButton() {
                   const inProgress = running && isLast && !result && !error
                   return (
                     <li key={i} className="flex items-center gap-2">
-                      <span className="text-muted-foreground w-4 text-center">
-                        {inProgress ? '⋯' : '✓'}
-                      </span>
-                      {step}
+                      {inProgress ? (
+                        <Loader2 className="text-muted-foreground size-4 shrink-0 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="text-brand size-4 shrink-0" />
+                      )}
+                      <span>{step}</span>
                     </li>
                   )
                 })}
@@ -190,11 +192,17 @@ export function SyncButton() {
             {/* Pinned status footer — always shows the current activity without scrolling. */}
             <div className="text-muted-foreground flex shrink-0 items-center gap-2 border-t p-4 text-sm">
               {error ? (
-                <span className="text-destructive font-medium">✕ {error}</span>
+                <>
+                  <XCircle className="text-destructive size-4 shrink-0" />
+                  <span className="text-destructive font-medium">{error}</span>
+                </>
               ) : result ? (
-                <span className="text-foreground font-medium">
-                  ✓ Synced {result.summary.days} days
-                </span>
+                <>
+                  <CheckCircle2 className="text-brand size-4 shrink-0" />
+                  <span className="text-foreground font-medium">
+                    Synced {result.summary.days} days
+                  </span>
+                </>
               ) : running ? (
                 <>
                   <Loader2 className="size-4 shrink-0 animate-spin" />
