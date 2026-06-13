@@ -67,7 +67,9 @@ export default function RootLayout({ children }) {
             {children}
           </ThemeProvider>
         </PostHogProvider>
-        <GoogleAnalytics gaId="G-GEDJP4858J" />
+        {/* Load Google Analytics ONLY on the live production deployment — not on local dev
+            or Vercel preview builds (VERCEL_ENV is 'production' only for the live env). */}
+        {process.env.VERCEL_ENV === "production" && <GoogleAnalytics gaId="G-GEDJP4858J" />}
       </body>
     </html>
   );
