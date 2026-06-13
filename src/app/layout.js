@@ -10,6 +10,7 @@ import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { PostHogProvider } from "@/components/posthog-provider";
+import { GoogleAnalytics } from "@next/third-parties/google";
 
 const ibmPlexSans = IBM_Plex_Sans({
   variable: "--font-sans",
@@ -66,6 +67,7 @@ export default function RootLayout({ children }) {
             {children}
           </ThemeProvider>
         </PostHogProvider>
+        <GoogleAnalytics gaId="G-GEDJP4858J" />
       </body>
     </html>
   );

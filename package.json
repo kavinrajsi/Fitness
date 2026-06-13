@@ -17,6 +17,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@flags-sdk/posthog": "^0.2.2",
     "@modelcontextprotocol/sdk": "^1.26.0",
+    "@next/third-parties": "^16.2.9",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.2",
     "@tanstack/react-table": "^8.21.3",
