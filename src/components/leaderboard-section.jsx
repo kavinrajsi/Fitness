@@ -9,7 +9,7 @@
  */
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { dkey, istMonthStart } from '@/lib/date-utils'
+import { dkey, istMonthStart, istLastMonthStart, istLastMonthEnd } from '@/lib/date-utils'
 import {
   Table,
   TableBody,
@@ -26,6 +26,7 @@ export const LEADERBOARD_PERIODS = [
   { key: 'yesterday', label: 'Yesterday', since: () => dkey(1), until: () => dkey(1) },
   { key: '7d', label: '7D', since: () => dkey(6), until: () => dkey(0) },
   { key: 'month', label: 'This month', since: () => istMonthStart(), until: () => dkey(0) },
+  { key: 'lastmonth', label: 'Last month', since: () => istLastMonthStart(), until: () => istLastMonthEnd() },
 ]
 
 /** Resolve a period key to its window definition, defaulting to Today. */

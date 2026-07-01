@@ -45,3 +45,19 @@ export function istMonthStart() {
   const ist = new Date(Date.now() + IST_OFFSET_MS)
   return `${ist.getUTCFullYear()}-${String(ist.getUTCMonth() + 1).padStart(2, '0')}-01`
 }
+
+// YYYY-MM-DD of the first day of the previous IST calendar month.
+export function istLastMonthStart() {
+  const ist = new Date(Date.now() + IST_OFFSET_MS)
+  const year = ist.getUTCFullYear()
+  const month = ist.getUTCMonth() // 0-11; January is 0
+  // Going back one month: if current is Jan (0), new month is 11 (Dec of prior year).
+  // JS Date normalizes automatically when we set a month < 0.
+  const lastMonth = new Date(Date.UTC(year, month - 1, 1))
+  return `${lastMonth.getUTCFullYear()}-${String(lastMonth.getUTCMonth() + 1).padStart(2, '0')}-01`
+}
+
+// YYYY-MM-DD of the last day of the previous IST calendar month.
+export function istLastMonthEnd() {
+  return addDays(istMonthStart(), -1)
+}

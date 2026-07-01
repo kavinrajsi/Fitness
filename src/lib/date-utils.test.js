@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isoDate, dkey, civil, addDays, civilKey, istMonthStart } from './date-utils'
+import { isoDate, dkey, civil, addDays, civilKey, istMonthStart, istLastMonthStart, istLastMonthEnd } from './date-utils'
 
 describe('date-utils', () => {
   it('dkey(daysAgo) equals isoDate(-daysAgo)', () => {
@@ -35,5 +35,32 @@ describe('date-utils', () => {
 
   it('istMonthStart() returns the 1st of a month', () => {
     expect(istMonthStart()).toMatch(/^\d{4}-\d{2}-01$/)
+  })
+
+  it('istLastMonthStart() returns the 1st of the previous month', () => {
+    const start = istLastMonthStart()
+    expect(start).toMatch(/^\d{4}-\d{2}-01$/)
+    // The start of last month should be before the start of this month.
+    expect(start < istMonthStart()).toBe(true)
+  })
+
+  it('istLastMonthEnd() returns the last day of the previous month', () => {
+    const end = istLastMonthEnd()
+    expect(end).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    // The end of last month should be before the start of this month.
+    expect(end < istMonthStart()).toBe(true)
+    // The end of last month + 1 day should equal the start of this month.
+    expect(addDays(end, 1)).toBe(istMonthStart())
+  })
+
+  it('istLastMonthStart() and istLastMonthEnd() form a coherent month range', () => {
+    const start = istLastMonthStart()
+    const end = istLastMonthEnd()
+    // End should be >= start (they're in the same month).
+    expect(end >= start).toBe(true)
+    // Both should end in valid day ranges for their respective months.
+    expect(start).toMatch(/^\d{4}-\d{2}-01$/)
+    const dayOfEnd = parseInt(end.split('-')[2], 10)
+    expect(dayOfEnd >= 28 && dayOfEnd <= 31).toBe(true)
   })
 })

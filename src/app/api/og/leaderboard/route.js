@@ -9,7 +9,7 @@
  */
 import { ImageResponse } from 'next/og'
 import { createServiceClient } from '@/lib/supabase/service'
-import { dkey, istMonthStart } from '@/lib/date-utils'
+import { dkey, istMonthStart, istLastMonthStart, istLastMonthEnd } from '@/lib/date-utils'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -23,6 +23,7 @@ const PERIODS = {
   yesterday: { label: 'Yesterday', since: () => dkey(1), until: () => dkey(1) },
   '7d': { label: 'Last 7 days', since: () => dkey(6), until: () => dkey(0) },
   month: { label: 'This month', since: () => istMonthStart(), until: () => dkey(0) },
+  lastmonth: { label: 'Last month', since: () => istLastMonthStart(), until: () => istLastMonthEnd() },
 }
 
 // Output dimensions + layout sizing per share target. The tall ones share the
