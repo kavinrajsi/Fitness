@@ -32,6 +32,7 @@ import { ADMIN_EMAIL } from '@/lib/constants'
 import { StepsAreaChart } from './steps-area-chart'
 import { HourHeatmap } from '@/components/hour-heatmap'
 import { buildHeatmap } from '@/lib/heatmap'
+import { AdminDeleteUserButton } from '@/components/admin-delete-user-button'
 
 export const dynamic = 'force-dynamic'
 
@@ -168,11 +169,18 @@ export default async function AdminUserPage({ params }) {
           <h1 className="truncate text-xl font-bold tracking-tight">{name}</h1>
           <p className="text-muted-foreground truncate text-sm">{profile.email}</p>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-3">
           {profile.google_health_refresh_token ? (
             <Badge variant="outline">Health connected</Badge>
           ) : (
             <Badge variant="outline">Not connected</Badge>
+          )}
+          {profile.id !== user.id && (
+            <AdminDeleteUserButton
+              userId={profile.id}
+              name={profile.full_name ?? profile.email}
+              redirectOnDone
+            />
           )}
         </div>
       </div>
