@@ -25,6 +25,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { ADMIN_EMAIL } from '@/lib/constants'
 import { TestPushButton } from '@/components/test-push-button'
+import { AdminDeleteUserButton } from '@/components/admin-delete-user-button'
 
 export const dynamic = 'force-dynamic'
 
@@ -175,6 +176,7 @@ export default async function AdminPage() {
                   <TableHead className="text-right">Hourly</TableHead>
                   <TableHead className="text-right">Peak hr</TableHead>
                   <TableHead>Last sync</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -227,6 +229,14 @@ export default async function AdminPage() {
                       </TableCell>
                       <TableCell className="text-muted-foreground text-xs">
                         {formatDate(p.details_synced_at)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {p.id !== user.id && (
+                          <AdminDeleteUserButton
+                            userId={p.id}
+                            name={p.full_name ?? p.email}
+                          />
+                        )}
                       </TableCell>
                     </TableRow>
                   )
