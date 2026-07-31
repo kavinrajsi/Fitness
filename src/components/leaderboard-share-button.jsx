@@ -31,7 +31,7 @@ const PLATFORMS = [
   { label: 'WhatsApp Message', format: 'square', file: 'whatsapp-message', icon: MessageCircle },
 ]
 
-export function LeaderboardShareButton({ period }) {
+export function LeaderboardShareButton({ period, from, to }) {
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(false)
   const isMobile = useIsMobile()
@@ -39,7 +39,13 @@ export function LeaderboardShareButton({ period }) {
   async function share(format, file) {
     setBusy(true)
     try {
-      const response = await fetch(`/api/og/leaderboard?period=${period}&format=${format}`)
+      // A custom window lives in from/to, so the image matches the range on screen.
+      const query = new URLSearchParams({ period, format })
+      if (period === 'custom' && from && to) {
+        query.set('from', from)
+        query.set('to', to)
+      }
+      const response = await fetch(`/api/og/leaderboard?${query}`)
       if (!response.ok) throw new Error('image failed')
       const blob = await response.blob()
       const fileObj = new File([blob], `kyarefitting-${file}.png`, { type: 'image/png' })

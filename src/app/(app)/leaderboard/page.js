@@ -27,7 +27,8 @@ export const metadata = { title: 'Leaderboard — KyaReFitting aa' }
 // Resolves the period window and renders the shared leaderboard section (tabs + ranking).
 export default async function LeaderboardPage({ searchParams }) {
   const params = await searchParams
-  const period = resolvePeriod(params.period) // default Today
+  // ?period=custom reads the window from ?from=/?to=; anything invalid falls back to Today.
+  const period = resolvePeriod(params.period, { from: params.from, to: params.to })
 
   const supabase = await createClient()
   const {
@@ -47,17 +48,20 @@ export default async function LeaderboardPage({ searchParams }) {
         <CardTitle>Leaderboard</CardTitle>
         <CardDescription>Total steps · {period.label} · {dateLabel}</CardDescription>
         <CardAction>
-          <LeaderboardShareButton period={period.key} />
+          <LeaderboardShareButton period={period.key} from={since} to={until} />
         </CardAction>
       </CardHeader>
 
       <CardContent>
+        {/* periodKey is the raw param, not period.key — an invalid custom range must keep
+            the Custom tab (and its form) selected so it can be corrected. */}
         <LeaderboardSection
           userId={user.id}
-          periodKey={period.key}
+          periodKey={params.period}
           basePath="/leaderboard"
           paramName="period"
           currentParams={params}
+          showCustom
         />
       </CardContent>
     </Card>

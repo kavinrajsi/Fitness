@@ -1,5 +1,6 @@
 /**
- * GET /api/og/leaderboard?period=today|7d|month&format=story|post|square|wide
+ * GET /api/og/leaderboard?period=today|7d|month|custom&format=story|post|square|wide
+ *   - period=custom also takes &from=YYYY-MM-DD&to=YYYY-MM-DD (clamped server-side)
  *   - story  → 1080×1920 (Instagram Story / WhatsApp Status, 9:16 — default)
  *   - post   → 1080×1350 (Instagram Post, 4:5)
  *   - square → 1080×1080 (WhatsApp Message, 1:1)
@@ -9,7 +10,13 @@
  */
 import { ImageResponse } from 'next/og'
 import { createServiceClient } from '@/lib/supabase/service'
-import { dkey, istMonthStart, istLastMonthStart, istLastMonthEnd } from '@/lib/date-utils'
+import {
+  dkey,
+  istMonthStart,
+  istLastMonthStart,
+  istLastMonthEnd,
+  clampRange,
+} from '@/lib/date-utils'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -41,7 +48,13 @@ const FORMATS = {
 // next/og. No auth — output is limited to the public leaderboard-safe fields.
 export async function GET(request) {
   const params = new URL(request.url).searchParams
-  const period = PERIODS[params.get('period')] ?? PERIODS.month
+  // ?period=custom takes its window from ?from=/?to= (clamped); anything else, or an
+  // unusable pair, falls back to a preset.
+  const custom =
+    params.get('period') === 'custom' ? clampRange(params.get('from'), params.get('to')) : null
+  const period = custom
+    ? { label: 'Custom', since: () => custom.since, until: () => custom.until }
+    : (PERIODS[params.get('period')] ?? PERIODS.month)
   const format = FORMATS[params.get('format')] ?? FORMATS.story
   const portrait = format.kind === 'portrait'
   const s = format.s

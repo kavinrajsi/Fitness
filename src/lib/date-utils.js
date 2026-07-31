@@ -40,6 +40,37 @@ export function civilKey(date) {
     : null
 }
 
+// True for a real YYYY-MM-DD calendar date (rejects shapes like 2026-02-31).
+export function isDateKey(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const date = new Date(value + 'T00:00:00Z')
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
+}
+
+// Longest custom window we'll hand to leaderboard_between(), in days (inclusive).
+export const MAX_RANGE_DAYS = 366
+
+/**
+ * Normalize a user-supplied [from, to] pair into a safe inclusive IST window:
+ * swaps a reversed pair, clamps the end at today, and caps the span at
+ * MAX_RANGE_DAYS. Returns null unless both dates are real YYYY-MM-DD values.
+ */
+export function clampRange(from, to) {
+  if (!isDateKey(from) || !isDateKey(to)) return null
+  let [since, until] = from <= to ? [from, to] : [to, from]
+
+  const today = dkey(0)
+  if (until > today) until = today
+  if (since > until) since = until
+
+  const span = Math.round(
+    (new Date(until + 'T00:00:00Z') - new Date(since + 'T00:00:00Z')) / 86400000
+  )
+  if (span >= MAX_RANGE_DAYS) since = addDays(until, -(MAX_RANGE_DAYS - 1))
+
+  return { since, until }
+}
+
 // YYYY-MM-DD of the first day of the current IST calendar month.
 export function istMonthStart() {
   const ist = new Date(Date.now() + IST_OFFSET_MS)
