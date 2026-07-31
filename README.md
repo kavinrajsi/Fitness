@@ -2,9 +2,8 @@
 
 A Google-Health–powered fitness tracker: sign in with Google, sync your steps and
 health metrics, climb a leaderboard, and get push notifications — when a top mover pulls
-ahead, plus a daily morning (yesterday's top 3) and night (today's top 3) recap. You can
-also hand your own data to an AI assistant over an MCP server. Built with Next.js 16 +
-Supabase.
+ahead, plus a daily morning (yesterday's top 3) and night (today's top 3) recap. Built
+with Next.js 16 + Supabase.
 
 ## Stack
 
@@ -18,8 +17,7 @@ Supabase.
   `Button` has no `asChild`), **IBM Plex Sans**, **recharts** for charts. Dark mode is the
   default (`next-themes`), with a `--brand` yellow token + a 5-colour chart palette.
 - **web-push** for Web Push notifications (VAPID), with a service worker + PWA manifest.
-- **MCP server** (`mcp-handler`) at `/api/mcp/mcp` — read-only tools an AI can call with a
-  per-user token; **vaul** drawers, **@tanstack/react-table**, and **zod** round out the UI.
+- **vaul** drawers and **@tanstack/react-table** round out the UI.
 - **Vercel** — hosting + a daily cron.
 
 ## Features
@@ -35,20 +33,6 @@ Supabase.
   Instagram Story 1080×1920, Instagram Post 1080×1350, WhatsApp square 1080×1080, and a
   1200×630 link preview. The Share control is a dropdown on desktop and a bottom sheet on
   mobile.
-- **AI access (MCP)** — the `/ai` page mints per-user API tokens; the remote MCP server at
-  `/api/mcp/mcp` then exposes **7 read-only tools** (`get_profile`, `get_daily_metrics`,
-  `get_step_stats`, `get_streaks_and_achievements`, `get_activity_heatmap`, `get_workouts`,
-  `get_leaderboard`) so Claude can read **only that user's** data.
-- **Developer REST API (`/api/v1`)** — the same data over plain HTTP for building apps.
-  Tokens carry **scopes** (`read` / `write`); a read-only token is safe to hand to another
-  developer. Bearer auth, open CORS, an OpenAPI spec at `/api/v1/openapi.json`, and human
-  docs at **`/developers`**. Writes are limited to the user's own `dailyStepGoal`.
-  **Rate-limited** per token (120/min, `429` + `X-RateLimit-*` headers).
-- **OAuth2 (`/oauth/*`)** — third-party apps get user consent via the authorization-code
-  flow with **PKCE (S256)** instead of pasted tokens. Register clients at `/developers/apps`;
-  consent at `/oauth/authorize`; token exchange + refresh at `/api/oauth/token`; discovery at
-  `/.well-known/oauth-authorization-server`. OAuth access tokens (`kref_at_…`) work on every
-  `/api/v1` endpoint and the MCP server.
 - **Admin** (`/admin`, gated to `ADMIN_EMAIL`, `noindex`) — all users, per-user drill-down,
   device list, and a push **notification log**.
 - **Sync** three ways: a daily cron, an on-demand streaming Sync button, and a Google
@@ -68,14 +52,15 @@ Supabase.
 | `leaderboard_snapshot` | last-seen 7-day totals (drives push deltas) |
 | `push_subscriptions` | Web Push subscriptions + device label/user-agent |
 | `notification_log` / `notification_recipients` | push audit log (what was sent, to whom, status, device) |
-| `api_tokens` | per-user personal bearer tokens (MCP + REST), stored hashed (`token_hash`) with `last_four`, `name`, `scopes`, `last_used_at`, `revoked_at` |
-| `api_rate_limits` | fixed-window request counters (`key`, `window_start`, `count`) for per-token rate limiting |
-| `oauth_clients` / `oauth_authorization_codes` / `oauth_access_tokens` / `oauth_refresh_tokens` | OAuth2: registered apps, single-use codes, and hashed access/refresh tokens |
+
+The `api_tokens`, `api_rate_limits`, and `oauth_*` tables still exist in Postgres but are
+**unused** — they backed the removed MCP server / developer API and have no reader or
+writer left in the code.
 
 Migrations are applied directly via the **Supabase MCP** (`apply_migration`); there is no
 tracked `supabase/` migrations folder. Cross-user ranking is computed in SQL by two
 security-definer functions: `leaderboard_between(since, until)` (the leaderboard page and
-the share images) and `leaderboard_since(date)` (push deltas and the MCP leaderboard tool).
+the share images) and `leaderboard_since(date)` (push deltas).
 
 ## Environment variables
 
@@ -198,9 +183,6 @@ Daily leaderboard pushes (to all opt-in subscribers) run on two crons:
 
 Both cron routes share the `CRON_SECRET` guard in `src/lib/cron-auth.js` (`authorizeCron`).
 
-Full endpoint reference with **sample requests + responses**: [docs/API.md](docs/API.md)
-(human docs also live at `/developers`; machine spec at `/api/v1/openapi.json`).
-
 ### API routes
 
 | Route | Purpose |
@@ -210,9 +192,6 @@ Full endpoint reference with **sample requests + responses**: [docs/API.md](docs
 | `GET /api/cron/notify-leaderboard` | nightly Vercel cron (`CRON_SECRET`); `?period=today&sync=1` re-syncs then pushes today's top 3 |
 | `POST /api/webhooks/health` | Google Health change webhook (`GOOGLE_HEALTH_WEBHOOK_SECRET`) |
 | `GET /api/og/leaderboard` | branded top-5 image (`?period=`, `?format=story\|post\|square\|wide`) |
-| `POST/GET /api/mcp/mcp` | remote MCP server, per-user Bearer token, read-only tools |
-| `GET/PATCH /api/v1/*` | developer REST API (Bearer token + scopes, rate-limited): `me`, `daily-metrics`, `steps/stats`, `steps/hourly`, `heatmap`, `streaks`, `workouts`, `leaderboard`, `export`, `openapi.json` |
-| `GET /oauth/authorize` · `POST /api/oauth/token` | OAuth2 authorization-code + PKCE flow (consent screen + token/refresh) |
 | `POST /api/push/{subscribe,unsubscribe,test}` | Web Push subscription + admin test broadcast |
 
 ## Deployment

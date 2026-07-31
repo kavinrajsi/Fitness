@@ -14,7 +14,6 @@ import {
   Dumbbell,
   Trophy,
   User,
-  Sparkles,
   Shield,
   Bell,
   LogOut,
@@ -39,7 +38,6 @@ const NAV = [
   { href: '/data', label: 'Steps', icon: Footprints },
   { href: '/workouts', label: 'Workouts', icon: Dumbbell },
   { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
-  { href: '/ai', label: 'AI', icon: Sparkles },
   { href: '/profile', label: 'Profile', icon: User },
 ]
 

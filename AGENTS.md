@@ -51,9 +51,10 @@ full architecture, data model, and env vars. Key conventions to follow:
   `supabase/` folder). **Confirm before applying production migrations.**
 - Cross-user ranking is **two** security-definer SQL functions: `leaderboard_between(since,
   until)` (the `/leaderboard` page + `/api/og/leaderboard`) and `leaderboard_since(date)`
-  (push deltas in `notify-leaderboard.js` + the MCP `get_leaderboard` tool).
-- Raw step samples land in `steps_raw`, rolled into `steps_hourly`. MCP bearer tokens are
-  stored hashed in `api_tokens` (never store the raw token).
+  (push deltas in `notify-leaderboard.js`, via `getLeaderboard` in `src/lib/fitness-data.js`).
+- Raw step samples land in `steps_raw`, rolled into `steps_hourly`.
+- The `api_tokens`, `api_rate_limits`, and `oauth_*` tables are leftovers from the removed
+  MCP server / developer API — nothing reads or writes them.
 
 ## Sync & push
 - All sync goes through `syncUserMetrics` (`src/lib/sync-metrics.js`), called by the cron,
@@ -85,33 +86,6 @@ full architecture, data model, and env vars. Key conventions to follow:
 - Sync also writes `steps_raw` + `steps_hourly`; `src/lib/heatmap.js` (`buildHeatmap`)
   aggregates the hourly rows into the weekday×hour activity grid.
 
-## AI / MCP / public API
-- A remote **MCP server** lives at `src/app/api/mcp/[transport]/route.js` (endpoint
-  `/api/mcp/mcp`, built on `mcp-handler`). Users mint per-user API tokens on `/ai`
-  (`src/lib/api-tokens.js` hashes them into `api_tokens`).
-- The **public REST API** is under `src/app/api/v1/*` (Bearer token via
-  `src/lib/api-auth.js` → `authenticateApiRequest`, JSON envelope/CORS in
-  `src/lib/api-response.js`, docs page `/developers`, spec `/api/v1/openapi.json`).
-- **Both surfaces share one source of truth: `src/lib/fitness-data.js`** (getProfileSummary,
-  getDailyMetrics, getStepStats, getStreaks, getHeatmap, getHourlySteps, getWorkouts,
-  getLeaderboard, getFullExport). Add data accessors there, not inline, so MCP + REST stay
-  in sync.
-- Everything authenticates with the user's Bearer token and reads **only that user's** rows
-  via the service client. Tokens carry **scopes** (`api_tokens.scopes`, default `{read}`);
-  reads need `read`, the single write (`PATCH /api/v1/me` → daily step goal) needs `write`.
-  Keep the surface read-mostly — don't expose other users' private rows or admin actions.
-- **OAuth2** (`src/lib/oauth.js`, routes `/oauth/authorize` + `/api/oauth/token` +
-  `/.well-known/oauth-authorization-server`, UI `/developers/apps`): authorization-code flow
-  with **PKCE S256 required**; access tokens are `kref_at_…`, refresh tokens rotate. Clients,
-  codes, and tokens live in the `oauth_*` tables (no RLS policies — service client only, always
-  filtered by `owner_user_id`/`user_id`). `authenticateApiRequest` (and MCP `verifyToken`)
-  **dispatch by prefix**: `kref_at_` → `resolveAccessToken`, else `resolveToken` — so both
-  surfaces accept either token type. Add OAuth tokens here, never bypass this seam.
-- **Rate limiting** (`src/lib/rate-limit.js` + `check_rate_limit` SQL fn): per-token fixed
-  window (`API_RATE_LIMIT`/`API_RATE_WINDOW` in constants), enforced inside
-  `authenticateApiRequest`; **fails open** on DB error. Stale `api_rate_limits` rows + expired
-  auth codes are pruned by the daily cron.
-
 ## Analytics & feature flags (PostHog)
 - **Analytics**: PostHog inits in `src/instrumentation-client.js` (Next 16 client
   instrumentation, `defaults: '2026-01-30'` auto-pageviews); `src/components/posthog-provider.jsx`
@@ -124,6 +98,6 @@ full architecture, data model, and env vars. Key conventions to follow:
 
 ## Working agreements
 - Commit/push only when asked; end commit messages with the `Co-Authored-By` trailer.
-- Don't dump raw OAuth tokens (or MCP API tokens) to the transcript.
+- Don't dump raw OAuth tokens to the transcript.
 - Tests run via `npm test` (vitest, node env); CI (`.github/workflows/ci.yml`, Node 22)
   runs install → test → build. Lint is **not** wired into CI — keep `npm test` green.
